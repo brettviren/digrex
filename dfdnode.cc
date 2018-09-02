@@ -13,6 +13,7 @@ using json = nlohmann::json;
 
 const char PA_TOPIC = 'P';
 
+const int chirp_count = 100000;
 
 class PASource {
     zmq::socket_t& m_out;
@@ -31,7 +32,8 @@ public:
         while (true) {
             count += 1;
             const time_t t = time(0);
-            const int ref_tick = int((t-t0)/ 0.5e-6);
+            const int dt = t-t0;
+            const int ref_tick = int(dt/ 0.5e-6);
         
             PrimitiveActivity pa;
             pa.set_fragid(m_fragid);
@@ -52,6 +54,13 @@ public:
             zmq::message_t reply (dat.size());
             memcpy ((void *) reply.data (), dat.c_str(), dat.size());
             m_out.send (reply);
+            if (dt > 0 && count % chirp_count == 0) {
+                double khz = count / dt * 0.001;
+                std::cerr << count / chirp_count << " "
+                          << dt << " "
+                          << ref_tick << " "
+                          << khz << " kHz\n";
+            }
         }
     }
 };
@@ -74,6 +83,9 @@ std::vector<zmq::socket_t*> make_sockets(zmq::context_t& context, json& jcfg)
         else {
             throw std::runtime_error("unknown socket method: "+meth);
         }
+
+        std::cerr << "socket type " << socktype
+                  << " " << meth << "(\"" << url << "\")\n";
 
         ret.push_back(sock);
     }
@@ -99,6 +111,7 @@ int main (int argc, char* argv[])
 
     auto jrole = jcfg["role"];
     const std::string role_type = jrole["type"];
+    std::cerr << "Running with role \"" << role_type << "\"\n";
 
     // This has to be thread local.  For now, we just do one
     // context/node per executable.

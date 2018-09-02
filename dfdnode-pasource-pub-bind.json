@@ -1,18 +1,13 @@
 {
-  "role": {
-    "type": "PASource",
-    "inputs": [ ],
-    "outputs": [
-      {
-        "socktype" : 1,
-        "url": "tcp://127.0.0.1:9876",
-        "method": "bind"
-      }
-    ],
-    "fragment_ident": 42
-  }
+   "role": {
+      "fragment_ident": 42,
+      "outputs": [
+         {
+            "method": "bind",
+            "socktype": 1,
+            "url": "tcp://127.0.0.1:9876"
+         }
+      ],
+      "type": "PASource"
+   }
 }
-
-        
-                   
-      
