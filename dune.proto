@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+/*
+  32 bit channel
+  64 bit timestamp
+  16 bit ticks over threshold
+  32 bit adc sum
+  16 bit error flag  
+*/
+
+message ChannelActivity {
+    // Channel from which this primitive comes.
+    uint32 channel = 1;
+
+    // Start of acitivty, measured from reference_tick
+    uint32 start_tick = 3;            
+
+    // Duration of channel activity, eg, ticks over threshold
+    uint32 duration = 4;
+    
+    // The "size" of activity.  Eg, sum ADC over threshold
+    uint32 activity = 5;
+}
+
+message PrimitiveActivity {
+    // Identify the DAQ fragment 
+    uint32 fragid = 1;
+
+    // Count the activity message from start of process.
+    uint32 count = 2;
+
+    // A reference tick counting absolute time
+    int64 reference_tick = 3;
+
+    repeated ChannelActivity primitives = 5;
+}    

@@ -1,0 +1,50 @@
+#+title: In which I play with protocol buffers and zeromq
+
+* The Toy
+
+** Goal
+
+I want to test the I/O performance of the possible nodes in the DUNE
+FD backend.  I want this test to cover the non-algorithm parts but
+which may cover parts that involve accumulating and distributing the
+data.
+
+** Model
+
+- A "channel group" represents some fixed sized set of collection
+  channels.  Eg, 48, 240, 480, 960.  This size is to be explored.
+
+- A loop produces fake trigger primitives across its group consistent
+  with Ar39 rate.
+
+- A criteria is applied in that loop to bundle the recently produced
+  primitives so they may be sent out a socket.
+
+- All bundles from a "channel group" are collected by one front end
+  computer (FEC) are bundled and sent out a socket.
+
+- A number of FECs feed one trigger candidate processor which sends
+  out a TC to a socket.
+
+- A number of TCPs send to a MTL
+
+** Implementaiton
+
+There are a number of options to consider
+
+ - multiplicity at each level
+
+ - topology of network in terms of graph connectivity and socket types
+
+Testing requires deploying and starting the test processes.  In order
+to reduce complexity at this level *a single executable can fulfill
+every role*.  Behavior is controlled by command line arguments.
+
+Because the performance is not expected to be ample, a Python
+prototype is skipped and a C++ implementation is used from the start.
+
+** Usage
+
+#+BEGIN_EXAMPLE
+  $ dfdnode bind|connect <url> <role> [role args] 
+#+END_EXAMPLE

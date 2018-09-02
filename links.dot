@@ -1,0 +1,43 @@
+digraph links {
+        rankdir=LR;
+        
+
+        node[shape=record];
+
+        logger[label="{<sub>SUB|LOGGER}"];
+
+        source[label="{SOURCE|pb|B|<pub>PUB}"];
+        
+        aggregate[label="{<sub>SUB|B|pb|AGGREGATE|pb|B|<pub>PUB}"];
+        
+        mtl[label="{<sub>SUB|B|pb|MTL|pb|B|<pub>PUB}"];
+        
+        etl[label="{<sub>SUB|B|pb|ETL|pb|B|<pub>PUB}"];
+
+        es[label="{<sub>SUB|B|pb|ES|pb|B|<pub>PUB}"];
+
+
+        // C = channel activity
+        source:pub->aggregate:sub[label="C"];
+
+        // F = fragment activity
+        aggregate:pub->mtl:sub[label="F"];
+        
+        // M = module activity
+        mtl:pub->etl:sub[label="M"];
+
+        etl:pub->mtl:sub[label="M"];
+
+        // T = trigger command
+        mtl:pub->es:sub[label="T"];
+        
+
+        source:pub->logger:sub[label="L"];
+        aggregate:pub->logger:sub[label="L"];
+        mtl:pub->logger:sub[label="L"];
+        etl:pub->logger:sub[label="L"];
+        es:pub->logger:sub[label="L"];
+        
+
+}
+
