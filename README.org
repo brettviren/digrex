@@ -4,10 +4,32 @@
 
 ** Goal
 
-I want to test the I/O performance of the possible nodes in the DUNE
-FD backend.  I want this test to cover the non-algorithm parts but
-which may cover parts that involve accumulating and distributing the
-data.
+I want
+
+- to test the I/O performance of the possible nodes in the DUNE FD
+  backend.
+
+- this test to cover the non-algorithm parts but which may cover parts
+  that involve accumulating and distributing the data.
+
+- to follow best practices for ZMQ and protobuf.
+
+- the overall distributed application to be organized as a graph of
+  nodes exchanging messages on edges.
+
+- to have a single node executable which may implement all possible
+  node roles as determined by a coherent configuration set.
+
+- a way to handle distributed deployment and execution of the nodes.
+
+- to investigate global behavior in particular network responses to
+  new nodes being added or falling out and to perform some kind of
+  dynamic graph migration to a new topology.
+
+- to consider dynamic discovery instead of configured endpoints.
+
+See ~TODO~ below for a more concrete list.
+
 
 ** Model
 
@@ -45,13 +67,31 @@ prototype is skipped and a C++ implementation is used from the start.
 
 ** Usage
 
+The distributed part isn't there yet so one has to start each node by
+hand on ~localhost~.
+
 #+BEGIN_EXAMPLE
-  $ dfdnode bind|connect <url> <role> [role args] 
+  $ mkdir cfg
+  $ jsonnet -m cfg dfdnode.jsonnet
+  $ dfdnode cfg/PASource_source42.json &
+  $ dfdnode cfg/PASink_sink.json &
 #+END_EXAMPLE
+
+Best to start nodes in different terminals as they spew to stdout.
 
 
 * TODO
 
-- use `pgrapher.jsonnet`
+- [x] ~use `pgrapher.jsonnet`~ use a more tailored graph representation.
 
-- deploy and configure via single jsonnet source
+- [x] basic source-sink functionality with protobuf
+
+- [x] configure via single Jsonnet source
+
+- [ ] deployment and execution or binary driven by config
+
+- [ ] a logging node used by other nodes
+
+- [ ] multiple sources to one sink
+
+- [ ] third layer (MTL)
