@@ -48,3 +48,10 @@ prototype is skipped and a C++ implementation is used from the start.
 #+BEGIN_EXAMPLE
   $ dfdnode bind|connect <url> <role> [role args] 
 #+END_EXAMPLE
+
+
+* TODO
+
+- use `pgrapher.jsonnet`
+
+- deploy and configure via single jsonnet source

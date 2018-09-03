@@ -15,17 +15,17 @@ const char PA_TOPIC = 'P';
 
 const int chirp_count = 100000;
 
+typedef std::map<std::string, zmq::socket_t*> port_map_t;
+
 class PASource {
-    zmq::socket_t& m_out;
+    zmq::socket_t* m_outbox;
     int m_fragid;
 public:
-    PASource(std::vector<zmq::socket_t*>& inputs,
-             std::vector<zmq::socket_t*>& outputs,
-             json& jcfg)
-        : m_out(*outputs[0])
-        , m_fragid(jcfg["fragment_ident"]) { }
+    PASource(json& jcfg, port_map_t& ports) 
+        : m_outbox(ports["outbox"])
+        , m_fragid(jcfg["params"]["fragid"]) { }
 
-    void operator()() {
+    bool operator()() {
         const time_t t0 = time(0);
 
         int count = 0;
@@ -53,7 +53,7 @@ public:
 
             zmq::message_t reply (dat.size());
             memcpy ((void *) reply.data (), dat.c_str(), dat.size());
-            m_out.send (reply);
+            m_outbox->send(reply);
             if (dt > 0 && count % chirp_count == 0) {
                 double khz = count / dt * 0.001;
                 std::cerr << count / chirp_count << " "
@@ -62,35 +62,64 @@ public:
                           << khz << " kHz\n";
             }
         }
+        return true;
     }
 };
 
-std::vector<zmq::socket_t*> make_sockets(zmq::context_t& context, json& jcfg)
-{
-    std::vector<zmq::socket_t*> ret;
-    for (auto jone : jcfg) {
-        int socktype = jone["socktype"];
-        std::string url = jone["url"];
-        std::string meth = jone["method"];
+class PASink {
+    zmq::socket_t* m_inbox;
+public:
+    PASink(json& jcfg, port_map_t& ports) 
+        : m_inbox(ports["inbox"]) { }
 
-        zmq::socket_t* sock = new zmq::socket_t(context, socktype);
-        if (meth == "bind") {
-            sock->bind(url);
-        }
-        else if (meth == "connect") {
-            sock->connect(url);
-        }
-        else {
-            throw std::runtime_error("unknown socket method: "+meth);
+    bool operator()() {
+        
+        while (true) {
+            zmq::message_t msg;
+            m_inbox->recv(&msg);
+            PrimitiveActivity pa;
+            pa.ParseFromArray(msg.data(), msg.size());
+            std::cerr << pa.count() << std::endl;
         }
 
-        std::cerr << "socket type " << socktype
-                  << " " << meth << "(\"" << url << "\")\n";
-
-        ret.push_back(sock);
+        return true;
     }
-    return ret;
+};
+    
+    
+
+zmq::socket_t* make_port(zmq::context_t& context, json& jport)
+{
+    int socktype = jport["type"];
+    int type = jport["type"];
+    const std::string meth = jport["meth"];
+    const std::string url = jport["url"];
+    zmq::socket_t* sock = new zmq::socket_t(context, type);
+
+    // deal with any opts
+    for (auto& jopt : jport["sockopts"]) {
+        int opt = jopt["opt"];
+        std::string arg = jopt["arg"];
+        sock->setsockopt(opt, arg.c_str(), arg.size());
+        std::cerr << jport["parent"] << ":" << jport["name"]
+                  << ": setsockopt("<<opt<<", \""<<arg<<"\")\n";
+    }
+
+    if (meth == "bind") {
+        sock->bind(url);
+    }
+    else if (meth == "connect") {
+        sock->connect(url);
+    }
+    else {
+        throw std::runtime_error("unknown socket method: "+meth);
+    }
+    std::cerr << jport["parent"] << ":" << jport["name"]
+              << ": "<<meth<<"(\""<<type<<",\""<<url<<"\")\n";
+
+    return sock;    
 }
+
 
 int main (int argc, char* argv[])
 {
@@ -103,37 +132,42 @@ int main (int argc, char* argv[])
 
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-    json jcfg;
+    json jnode;
     {
         std::ifstream cfgstream(argv[1]);
-        cfgstream >> jcfg;
+        cfgstream >> jnode;
     }
+    std::cerr << jnode << std::endl;
 
-    auto jrole = jcfg["role"];
-    const std::string role_type = jrole["type"];
-    std::cerr << "Running with role \"" << role_type << "\"\n";
 
     // This has to be thread local.  For now, we just do one
     // context/node per executable.
     zmq::context_t context (1);    
 
-    std::vector<zmq::socket_t*> inputs, outputs;
-
-    if (role_type == "PASource") {
-        inputs = make_sockets(context, jrole["inputs"]);
-        outputs = make_sockets(context, jrole["outputs"]);
-
-        PASource pas(inputs, outputs, jrole);
-        pas();
+    port_map_t ports;
+    for (auto jone : jnode["ports"].items()) {
+        std::string name = jone.key();
+        auto& jport = jone.value();
+        ports[name] = make_port(context, jport);
     }
-    // else{}
-
-    for (auto sockptr : inputs) {
-        delete sockptr;
+             
+    std::string klass = jnode["type"];
+    bool ok = false;
+    // Q&D factory
+    if (klass == "PASource") {
+        PASource node(jnode, ports);
+        ok = node();
     }
-    for (auto sockptr : outputs) {
-        delete sockptr;
+    if (klass == "PASink") {
+        PASink node(jnode, ports);
+        ok = node();
     }
 
-    return 0;
+    for (auto port : ports) {
+        std::cerr << jnode["type"] << ":" << jnode["name"]
+                  << " deleting port " << port.first << std::endl;
+        delete port.second;
+    }
+
+    return ok ? 0 : -1;
 }
