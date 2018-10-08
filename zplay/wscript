@@ -1,0 +1,22 @@
+#!/usr/bin/env waf
+'''
+
+$ PKG_CONFIG_PATH=$HOME/opt/zmq/lib/pkgconfig waf configure 
+
+'''
+
+def options(opt):
+    opt.load('compiler_c compiler_cxx')
+
+def configure(cfg):
+    cfg.load('compiler_c compiler_cxx')
+    cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
+                  args=['--cflags', '--libs'])
+
+
+def build(bld):
+
+    for prog in "ironhouse ironhouse2 curve-keygen".split():
+        t = bld(features='c cxx cxxprogram', use='ZYRE',
+                source=prog+'.cc', target=prog)
+        t.rpath=bld.env['LIBPATH_ZYRE']

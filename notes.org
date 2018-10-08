@@ -1,0 +1,100 @@
+* TODO Things to do
+
+- [x] ~use `pgrapher.jsonnet`~ use a more tailored graph representation.
+
+- [x] basic source-sink functionality with protobuf
+
+- [x] configure via single Jsonnet source
+
+- [ ] ~json~ is becoming pervasive in the current ~dfdnode~.  This will cause a problem in that configuration errors will not show themselves until runtime.  Should make hard-wired data structures to receive configuration data.  Should make them out of protobufs to maybe open the door to configuring over the network.
+
+- [ ] understand node execution in terms of a state machine.  Maybe formalize this using zmq state machines mechanism.
+
+- [ ] deployment and execution or binary driven by config
+
+- [ ] a logging node used by other nodes
+
+- [ ] multiple sources to one sink
+
+- [ ] third layer (MTL)
+
+- [X] look at Harmony pattern for discovery (ZRE)
+
+* Questions and some answers
+
+Checked off when I'm happy with the answers.
+
+- [X] *Where does PUB/SUB filtering occur?*  After zmq 3.2 in the PUB.
+
+- [X] *What happens when a SUB is slow?* [[http://zguide.zeromq.org/php:chapter5#toc4][Suicidal Snail Pattern]].  Messages queue on the SUB, if the network can keep up and SUB queues don't fill.  If PUB sets HWM, messages are dropped.  No disconnect by PUB.  The suicidal snail pattern recommends adding something to messages such as a sequence number of time stamp so that the SUB can detect it has gotten slow and missed messages and take action (such as killing self).  Sequence numbers need to be formed with care if a PUB is filtered to ensure a unique sequence for each stream.
+
+- [ ] *What makes up the DAQ graph?* A given graph "node" (aka "vertex") is identified with a single executable process with a number of "sockets", (not any considering possible ~inproc~ sockets).  A graph edge is identified as the established connection between two sockets.  Then "messages" traverse an edge. Only "in band" data messages are considered as being part of the graph.  There are indirect or out-of-band forms of message passing (eg, via Zyre, logging, control) which are not considered part of the DAQ graph, per se.
+
+- [ ] *How do nodes discover others in order to connect?*  There are several approaches.  Static configuration and/or registration has been considered but rejected because it requires coordinating the same information in multiple places and other forms of brittleness.
+
+Instead the Zyre network based discovery method is used.  This is described as the [[http://zguide.zeromq.org/page:all#True-Peer-Connectivity-Harmony-Pattern][Harmony Pattern]].  It is conceptually simple and Zyre implementation makes it simple to use.  The basic idea is that when a node starts it broadcast a beacon over UDP on order 1 per second (configurable).  The beacon holds the following information:
+
+  - name :: optional, set by application
+  - uuid :: generated, "random", used internally but exposed
+  - endpoint :: the URL for the ROUTER socket
+  - headers :: arb. key/value strings but message must be 255 bytes or smaller
+
+On receiving a beacon from a novel peer, a Zyre node will connect to the endpoint to inform the peer of its own information.  From then on, Zyre provides functionality to detect when a peer disappears (via heartbeat) and provides peer to peer messaging.  Peers can subscribe to an abstract "group" and send and receive messages to that group.
+
+- [ ] *How to decide to which peers a node connects?* From the set of all discovered peers, a node must select a subset to connect.  For each subset a selection criteria is needed as well as understanding of what manner of connection should be made.  For example, an MTL does not subscribe to a source of trigger primitives but it does subscribe to an ETL.  In general, a peer must assert some identifying information with which a node made select on.
+
+- [ ] *How to express identity?* Of the info in the Zyre beacon, the ~uuid~ is meaningless outside ZMQ internals and the ~endpoint~ is unlikely distinguishing unless one assigns some rigid  semantic map to IP addresses and ports.
+The ~name~ may be set by the application and could indicate some semantic meaning.  For example, all MTL nodes could be named starting with "~mtl~".  The ~headers~ provides the most flexible source of identifying information and will be used, but with the caution that the overall beacon must not exceed 255 bytes.
+
+- [ ] *What is identity in the DAQ graph?* Some nodes have clear identity.  There is only one ETL.  There is only one MTL per far detector module and (unfortunately) not to be more than four MTLs in total.  At the finest grain, there will likely be an a'priori assignment of nodes tied to physical detector segmentation.  For example, there will be one source of trigger primitives per some number of FEMB in the SP module.  This number will be very likely one of: 1, 5, 10 or 20, given how FEMBs service the collection channels and knowing the approximate number of threads needed to keep up with the data.
+
+Other categories of nodes have less obvious identities.  Interstitial layers, such as those holding the nodes which aggregate trigger primitives to produce trigger candidates are somewhat fluid by desire.  We want to be able to add and remove nodes in these layers in order to scale.  The identity of a node in this layer is effectively identified by its connectivity and so it is difficult to form its connectivity based on its identity. 
+
+Furthermore, we must support special running where the DAQ graph is composed of either fully or partially disjoint subgraphs in order to continue to take data while some portion of a detector module is taking special data such as calibration or troubleshooting.  This special data acquisition may simply require segmentation from the "normal" part of the DAQ in order to not mix the two data stream.  Or it may require drastically different nodes.  For example during pluser charge injection calibration the normal triggering makes no sense.  Instead, what is needed is a near DC data taking for short periods of time (10-100 ms) followed by fast reconfiguration of the pulser and have this repeat as one scans through pulser settings.  To accomplish this, the DAQ subgraph dedicated to this data taking needs to be composed of special nodes.
+
+
+- [ ] How to rewrite the graph to minimize loss of live time, wall clock latency and given inherent asynchronousity of the system?
+
+
+- [ ] What is the semantic meaning of a "run"?
+
+
+
+- [ ] *What are partitions and how are they constructed?* At any time a node maintains a /partition sequence number/ (PSN).  As the name implies, the PSN identifies a DAQ partition (or "instance") which is defined as the graph formed by all nodes with the same PSN.  A new DAQ graph is formed by incriminating the PSN and messaging select nodes to adopt it.  A PSN of zero and any node which holds it is not participating in any DAQ partition.  Nodes are given PSNs in the form of a validity context (VC) which is a pair consisting of a PSN and a /data time stamp/.  A DTS is a high-resolution, absolute and globally shared time that is associated precisely with the data being processed.  It is not some host computer system time or other notion of the "current time" the process is experiencing.  Nodes progress through PSNs in the following way.  When they first start up they have a PSN of zero (no partition).  In initial discovery they include in their headers this PSN.  On discovery by a control node the Zyre messaging ("WHISPER") will be used to assign a VC with a non-zero PSN.  This assignment is performed based on the node ID sent in the beacon and some centralized configuration on the control node.  The node then cycles discovery with the new PSN.  The node then performs peer matching of which the PSN is one element of the match and connects.  The node will discard any data which is before the current VC's DTS.  The node will process data with DTS latter than its current VC until such a point that the data DTS is greater than its next largest VC ("validity change").  When a validity change occurs, the node will undergo the same procedure as start up.  It will disconnect its input sockets (if any), cycle Zyre discovery with the new PSN and connect with new nodes of matching PSN.  
+
+- [ ] *Does this work?* Any data held in the node's queues just before a validity change is lost?  Can it be drained an used in the new validity context?  The peers are also undergoing validity changes and may cut off data before the node knows to change.  How can a validity change smoothly drain buffers?  Also, the validity change of the partition will cover some extended time so the node must wait until all data sources are discovered and must have a way to know how many to expect.  A validity change may change the multiplicity and individual make up of input sources.
+
+- [ ] *Is auth required?* [[https://www.ibm.com/developerworks/security/library/se-distributed-apps-zeromq-part2/][good article on ZMQ auth support]].  We trust the DAQ network - mostly.  Without something to stop it someone can create multiple subscribers to all the trigger primitive sources which at some point can saturate the network.  Or, if a control mechanism is made then an errant control node can wreak havoc.
+
+- [ ] Should "data" and "logging" messages originate from the same PUB socket distinguished so they can be filtered by SUB or should two separate PUB sockets be used?
+
+- [ ] How and how much to record of the messages and other protocol traffic (eg, connects/disconnects)?
+
+- [ ] Where to record this meta data?  Log files?  Live logger apps?
+
+* Kurt's talk [2018-10-08 Mon]
+
+- supervisord with dynamic configuration
+- importance of names with human oriented semantics
+- authenticate human to RC GUI
+- PDSP has fixed "slots"
+- routing master per partition, implements policy/strategy
+- I suggest ability of overlay multiple data selection systems, Dave says CDF had this.
+
+** dynamic supervisord 
+
+*** events
+
+- http://supervisord.org/events.html
+
+This is for some listener to subscribe to learn of things that
+supervisord did or observed.  Events are delivered to a process via
+structured data on its stdin.  It must send to its stdout, simple
+strings to indicate its state (eg, "READY").
+
+*** control
+
+Seems the only way to dynamically control supervisord is via calls to the [[http://supervisord.org/running.html#running-supervisorctl][supervisorctl]] program.
+
+
+

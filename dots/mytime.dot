@@ -1,0 +1,55 @@
+digraph mytime {
+        node[shape=box];
+        ranksep=1;
+        
+
+        subgraph cluster_zyre {
+                label="zyre actor";
+                zyre[shape=circle,label="zyre\npoll\nloop"];
+                zcheck[shape=box,label="gatekeeper"];
+                wpipe[style=rounded,label="actor\npipe"];
+
+                zyre->zcheck[xlabel="zyre\ntraffic"];
+                zcheck->wpipe[xlabel="ECR"];
+        }                
+        subgraph cluster_trigN {
+                label="trigger primitive actor #N";
+                
+                trigN[label="trigger\nprocessor"];
+                apipeN[style=rounded,label="actor\npipe"];
+                tloopN[shape=circle,label="trig\npoll\nloop"]
+                apipeN->tloopN;
+
+                tloopN->trigN[penwidth=4];
+                apipeN->trigN[dir=back,headlabel="logs\ntriggers\nES"];
+        }
+        subgraph cluster_dataN {
+                label="data source actor #N";
+                tpipeN[style=rounded,label="ticks\npipe"];
+                ticksN[sape=box,label="ticks source\n(spin loop + delay?)"];
+                ticksN->tpipeN[penwidth=4]
+        }
+                
+
+        pub[style=rounded,label="pub"];
+
+        main[shape=circle,label="main\npoll\nloop"]
+
+        
+        other;
+        
+        tpipeN->tloopN[penwidth=4];
+        
+
+        wpipe->main[xlabel="ECR"];
+        
+        main->apipeN[taillabel="ECR"];
+        
+        apipeN->main;
+
+        main->pub[taillabel="logs\ntriggers\nES"];
+        
+        
+        pub->other;
+        
+}

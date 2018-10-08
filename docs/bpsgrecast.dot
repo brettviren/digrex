@@ -1,0 +1,30 @@
+digraph bpsg {
+        rankdir=LR
+        subgraph cluster_ab {
+                label="aggregate node AB"
+                node[shape=circle]
+
+                ab[label="node AB"]
+
+                a1[label="pa1"]
+                a2[label="pa2"]
+                a3[label="pa3"]
+
+                b2[label="pb2"]
+                b3[label="pb3"]
+                b4[label="pb4"]
+
+                }
+                a1->ab
+                a2->ab
+                ab->a3
+
+                b2->ab
+                ab->b3
+                ab->b4
+        }
+
+}
+        
+        
+        

@@ -1,0 +1,20 @@
+#!/usr/bin/env waf
+def options(opt):
+    opt.load('compiler_c compiler_cxx')
+
+def configure(cfg):
+    cfg.load('compiler_c compiler_cxx')
+    cfg.load('protoc_cxx','waftools')
+    cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
+                  args=['--cflags', '--libs'])
+
+
+def build(bld):
+
+    t = bld(features='c cxx cxxprogram', use='ZYRE',
+            source='mytime.cc mytime.proto', target='mytime')
+    t.rpath=bld.env['LIBPATH_ZYRE']
+
+    t = bld(features='c cprogram', use='ZYRE',
+            source='zchat.c', target='zchat')
+    t.rpath=bld.env['LIBPATH_ZYRE']

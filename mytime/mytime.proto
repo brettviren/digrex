@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+message EpochChange {
+    // New epoch number.  Note, recievers should ignore any change
+    // requests where this is not larger than their current epoch
+    // numbers except that zero is to be interpreted as going quiet.
+    uint32 number = 1;
+
+    // New mytime emittance period in millisecond.  Receivers should
+    // interpret zero as to not emit.
+    uint32 period = 2;
+
+    // The time to commence the new epoch.  This is a time_t value.
+    // Receivers must assure not to commence the new epoch before this
+    // time and should commence immediately after this time.
+    int64 start = 3;
+}
+
+
+message ChannelActivity {
+    // Channel from which this primitive comes.
+    uint32 channel = 1;
+
+    // Start of acitivty, measured from reference_tick
+    uint32 start_tick = 3;            
+
+    // Duration of channel activity, eg, ticks over threshold
+    uint32 duration = 4;
+    
+    // The "size" of activity.  Eg, sum ADC over threshold
+    uint32 activity = 5;
+}
+
+message PrimitiveActivity {
+    // Identify the DAQ fragment 
+    uint32 fragid = 1;
+
+    // Count the activity message from start of process.
+    uint32 count = 2;
+
+    // A reference tick counting absolute time
+    int64 reference_tick = 3;
+
+    repeated ChannelActivity primitives = 5;
+}    

@@ -2,3 +2,14 @@
 dfdnode
 __pycache__
 build
+*.pdf
+auto
+*.pyc
+latexmk-out
+out
+.lock-waf*
+tmp
+cut
+install
+venv
+.curve

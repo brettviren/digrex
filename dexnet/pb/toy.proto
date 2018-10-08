@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+message NodeIdentity {
+    string name = 1;
+    map<string,string> headers = 2;
+}
+
+message SocketDesc {
+    enum Transport {
+        tcp = 0;
+        ipc = 1;
+        inproc = 2;
+    }
+    Transport transport = 1;
+    string host = 2;
+    uint32 port = 3;
+    uint32 zmqtype = 4;
+}
+
+
+message ToyTPSourceConfig {
+    SocketDesc inbox = 1;
+    SocketDesc outbox = 2;
+    uint32 period = 3;
+}

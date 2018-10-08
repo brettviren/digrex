@@ -1,0 +1,384 @@
+\documentclass[letterpaper,oneside]{memoir}
+\setsecnumdepth{subsubsection}
+
+\usepackage{graphicx}
+\usepackage{xspace}
+\usepackage[dvipsnames,svgnames]{xcolor}
+\usepackage[utf8]{inputenx}
+\usepackage[margin=2cm]{geometry}
+\usepackage{subfig}
+\usepackage{hyperref}
+
+\def\pair{\texttt{PAIR}\xspace}
+\def\pub{\texttt{PUB}\xspace}
+\def\sub{\texttt{SUB}\xspace}
+\def\rep{\texttt{REP}\xspace}
+\def\req{\texttt{REQ}\xspace}
+\def\router{\texttt{ROUTER}\xspace}
+\def\dealer{\texttt{DEALER}\xspace}
+\def\zactor{\texttt{zactor}\xspace}
+\def\zmq{\O{}MQ\xspace}
+\def\czmq{CZMQ\xspace}
+\def\dexnet{\textit{dexnet}\xspace}
+\def\Dexnet{\textit{Dexnet}\xspace}
+
+\title{Distributed Executable Network}
+
+\begin{document}
+
+\chapter{Introduction}
+\label{ch:intro}
+
+The DUNE Far Detector (FD) DAQ must ingest an enormous amount of data from multiple, distributed sources of various packet and data rates, periodicity, information content and importance. 
+Based on the information content of its primary detector data streams it must determine a tiny fraction which is interesting for physics analysis, select it and produce it as output. 
+It must remain in constant operating while adapting to changes be they intentional and human directed, unexpected failures or variation in detector conditions.
+
+\section{Scope}
+\label{sec:scope}
+
+The DAQ hardware, firmware and software elements that ingest, consume, process, reduce, select, compress, format and finally store the output data are numerous and varied in their purpose, implementation, processing rates, data consumption and production rates. 
+They are not directly the subject of this note. 
+Rather, the subject is that of an interstitial system in which these elements operate, communicate, and are configured, monitored and controlled. 
+It is through this interstitial system that the individual elements work in concert to provide a distributed executable network. 
+This interstitial system is given, for lack of a better one, the working name \dexnet.
+
+The remainder of this note gives the relevant requirements for \dexnet, provides a simple narrative model, describes its design in more detail, presents some specific DUNE FD DAQ issues and how \dexnet addresses them and finally it describes an initial prototype implementation which may be extended for production with additional development effort.
+
+\section{Requirements}
+\label{sec:req}
+
+The \dexnet interstitial communication system must provide for the following.
+
+\begin{itemize}
+\item Allow messages to be reliably sent between the various elements of the DAQ.
+\item Provide robustness in the face of errors and contribute to uninterrupted operation.
+\item Allow for initial configuration of elements and of their connections.
+\item Allow for reconfiguration with minimal or not interruption to operation.
+\item Be extensible to currently understood variability of elements (eg, the elements of the SP/DP FD modules) as well as provide high expectation to support future elements (eg, elements of FD module M3/M4).
+\item Support the elements and integrate with any peer systems with reasonably achievable expenditures of effort.
+\item Support an expectation of sufficient support for the lifetime of the experiment.
+\end{itemize}
+
+
+
+\chapter{Model}
+\label{ch:model}
+
+Before describing the details of the \dexnet design it is useful to understand the simple conceptual model which it follows.
+In graph-theoretical terms \dexnet can be modeled as a \textit{directed, cyclic port graph}.
+This chapter describes what that means.
+
+\section{Ported Nodes}
+The term ``port'' means here that the graph may be decomposed into \textit{bipartite subgraphs} consisting of exactly one vertex of type ``node"\footnote{It is granted that this is somewhat a misnomer as ``node'' and ``vertex'' are typically synonymous in graph theoretical terms. 
+  Also note that this ``node'' is not necessarily associated with a ``computer node". 
+  Examples are given later.} and one or more vertices of type ``port". 
+Every port must be connected to exactly one node (``its node'') and in addition may be connect to zero or more other ports (including in principle ports sharing the same node). 
+A port which is not connected to any other port is considered \textit{disconnected} despite being connected to its node and in this case the node is considered \textit{not fully connected} despite being connected to all its ports. 
+A graph with any disconnected ports is considered incomplete but this need not render the graph invalid.
+Invalid graphs are discussed in Section~\ref{sec:roles}.
+A port is considered to be of a particular \textit{type}. 
+The type determines how many connections to other ports may be made as well as its behavior in how it exchanges information with connected ports.
+Two ways to visualize this ported graph structure are shown in Figure~\ref{fig:bpsg}.
+
+\begin{figure}[htbp]
+  \centering
+  
+  \subfloat[]{\includegraphics[height=4cm]{bpsg.pdf}}
+  \subfloat[]{\includegraphics[height=4cm]{bpsg2.pdf}}
+
+  \caption{Two illustrations of the same decomposition of the \dexnet graph into two subgraph consisting of one ``node'' vertex and multiple ports where the subgraphs are connected through one each of their ports.  As-is, three ports of each node are not currently connected to any other ports.}
+  \label{fig:bpsg}
+\end{figure}
+
+
+
+\section{Scale}
+
+An obvious consequence of this construction is that port graphs have a scaling feature whereby any set of connected subgraphs can be recast as a single ``node''. 
+This aggregate node will expose all unconnected ports as its own while internalizing any which are connected, thus hiding complexity. 
+This is illustrated by recasting the two visual representations in Figure~\ref{fig:bpsg} to their equivalent ones in Figure~\ref{fig:bpsgrecast}.
+From here on, we will use the term ``node'' to describe either an atomic bipartite subgraph or an aggregate of multiple such subgraphs.
+
+
+\begin{figure}[htbp]
+  \centering
+  
+  \subfloat[]{\includegraphics[height=4cm]{bpsgrecast.pdf}}
+  \subfloat[]{\includegraphics[height=4cm]{bpsg2recast.pdf}}
+
+  \caption{write me}
+  \label{fig:bpsgrecast}
+\end{figure}
+
+\section{Messages}
+
+The \dexnet graph is \textit{directed} in the sense that a discrete element of data (a message) is created in one node and consumed in one or more other nodes which are connected by their intervening ports. 
+In Figure~\ref{fig:bpsg}, a message is created in node~\textsf{A} and emitted from its port~\textsf{p4}.  It is then transported to port~\textsf{p1} and consumed by associated node~\textsf{B}.
+Every message is of a particular type which is defined in terms of its data structure schema and a protocol for its production and consumption. 
+
+\section{Roles}
+\label{sec:roles}
+
+Rules govern validity of connections and determine which messages are acceptable to flow across them.
+They are expressed through an abstract \textit{role}. 
+A role consists of these aspects:
+
+\begin{enumerate}
+\item a number ports (not nodes) and for each port its type and minimum number of required connections
+\item the message types acceptable for input and output to each port 
+\item a semantically defined behavior for the above
+\end{enumerate}
+
+\noindent Upon construction, if the minimum number of required connections is not reached for any port, the graph is considered invalid.
+
+Just as there is a scaling rule for nodes through aggregation and port internalizing, so may larger roles be constructed from smaller ones. 
+This construction can be through tightly coupled code as will sometimes be needed or it may be through aggregation of otherwise loosely coupled units.\footnote{In fact, below we discuss how the implementation allows great flexibility in aggregating.}
+
+It's worth noting here that one main effort in applying this model through the design described in the next chapter and to an implementation is to enumerate and carefully define the roles that make up a specific system.
+
+\section{Example}
+
+This all seems rather abstract so a simple (virtual) example may help explain before going into the details of the design. 
+A common role is ``log producer'' which essentially consists of a single port that produces messages which are essentially of type string.\footnote{The term \textit{essentially} is used as there are more details than this which will be given later.} 
+An application which starts an infinite loop sending ``\texttt{Hello World!}'' would be a minimal implementation. 
+A minimal graph might be made by connecting a second role ``log receiver'' to this producer. 
+It may be written to simply dump the message to standard output. 
+A second receiver may be a large GUI application which aggregates other data along with log messages not just from this little ``Hello World'' application but from many others. 
+A third might be a mobile phone application which ignores ``Hello World'' but looks for messages ``Goodbye cruel world!'' and notifies authorities to bring icecream to the poor grad students taking shift. 
+As will be shown in the design, these three receivers do not interfere with each other and in fact can come and go.
+
+
+\chapter{Design}
+
+The technical design of \dexnet is described in this chapter.
+The first section introduces the software technology that forms the basis of the design. 
+Its terms are then mapped to the model of Section~\ref{sec:model}.
+The subsequent sections walk through the main design elements.  
+This chapter remains somewhat generic as to the application of the design and so may be suitable for adoption to many systems. 
+The next chapter will go into more details about the application of the design to DUNE FD DAQ.
+
+\section{Base Technology}
+
+In describing the design, the software chosen as a basis for the implementation will be taken as given in order to provide concrete terminology and root the design in existing and proven technology. 
+A node port referred to in the model is identified with an instance of a ZeroMQ (\zmq) socket. 
+The \zmq software project and its products will not be described in detail here as the project provides stellar documentation. 
+The reader is encouraged to look to it for background information.  
+However, a few basic and important concepts are given here to save you dear reader from finding them in among all the good documentation. 
+
+\zmq sockets are high level abstractions on top of the low level system facilities for: thread safe queues (\zmq type \texttt{inproc}), Unix domain sockets (aka ``named pipes'' or ``FIFOs'', \zmq type \texttt{ipc}) and TCP sockets (type \texttt{tcp}). 
+They provide a cross-platform and uniform interface regardless of which of these three types of transport are used.
+In fact, choice of the actual transport is set at run-time with a string holding an URL where the URL scheme determines the transport (eg \verb|tcp://hostname:port|). 
+Unlike low level TCP sockets, \zmq sockets do not require a strict ``client/server'' pattern. 
+Although one side must first ``bind'' to an address (server-like) and one side must ``connect'' to that address (client-like) either side may send messages at any time. 
+Another important feature is that the application providing a \zmq endpoint may go away and come back and the connection may persist. 
+This means that \zmq connections are robust against network interruption or congestion, applications reaching an overloaded or busy state, intentional shutdown and startup or a crash followed by a restart. 
+At the same time, \zmq sockets can get prompt notification if a peer has stopped responding in some specified time so that the application may take any appropriate corrective action.
+
+A \zmq socket is of a particular type that defines its functional behavior in terms of message passing protocol, numbers of connections and the types of peer ports that may connect. 
+The subset of types which are important to the design of \dexnet are:
+
+\begin{description}
+
+\item[\pair] message may only flow between an exclusive pair of such sockets. 
+  This is often used for forming a pair of queues to allow two different threads to safely communicate.
+
+\item[\pub] subscriptions are accepted from \sub sockets and messages are then sent to them possibly limited by filtered registered at subscription time.
+
+\item[\sub] the receiver of \pub messages. 
+  A \sub socket may subscribe to a prefix topic in order to limit which messages to get. 
+  A \sub socket may subscribe to multiple \pub sockets.
+
+\item[\dealer] a ``client like'' socket which acts like \req but operates asynchronously, allowing for out of order replies.  It is suitable for implementing a ``scatter-gather'' pattern, for example.
+
+\item[\router] a ``server like'' socket but which may reply asynchronously, if at all, to requests depending on the application. \footnote{Despite the name, do not think of this socket exactly as you may think of your home ``router''.  The ``routing'' means the socket tells the application an ID of the ``client'' so that any response can be ``routed'' back to the correct client.}  
+
+\item[\req] a ``client like'' socket which sends a message and synchronously waits for a reply. 
+  It's benefit is simpler application code if the synchronous behavior is acceptable.
+
+\item[\rep]:: a ``server like'' socket which is synchronous. 
+  This is not expected to be useful in \dexnet but is listed here for completeness.
+
+\end{description}
+
+\noindent In this list, ``client like'' sockets may ``talk'' to ``server like'' sockets and either end may ``bind'' and the other may ``connect''.
+
+
+The design will also make use of the high-level C/C++ interface to ZeroMQ (\czmq) provided by the ZeroMQ project. 
+In particular its abstraction known as \zactor will be used heavily.
+A \zactor is a class\footnote{Conceptually the term ``class'' is used in the Object Oriented meaning however the implementation is C based. 
+  In \czmq the class object is an opaque data object (pointer to an underlying struct) and the class methods are functions which take this data object as an argument.} which bundles together a thread, a function to run in the thread and a thread-safe pipe in the form of two \zmq \pair sockets to allow the creator to safely communicate with its actor.  As such, actors tend to, well, act as a \textit{mixin} to a larger application.  Aggregation of actors becomes an exercise of servicing messages to and from their pipes and doing interesting things with the messages in the between.
+
+Finally, the ZeroMQ project Zyre is used. 
+Zyre implements the ZRE protocol which provides discovery, presence and group messaging.
+Zyre is in implemented in the form of a complete \zactor class.
+Discovery involves nodes announcing on the local network their identity in the form of a name an a set of named parameters. 
+Announcements are made periodically and if a novel announcement is received by a Zyre node it will connect to the announcer and introduce itself. 
+Thus all peers may know one another. 
+The process takes about a second.
+Presence allows for notification upon a node disappearing from the network. 
+Determining if a node has become unresponsive is done through a heartbeat with a configurable timeout.
+Finally, group messaging provides a way to send and receive messages via an abstract group definition. 
+Messages sent addressed to an abstract group name and are received by any other Zyre nodes which are subscribed to that group name.
+
+Next describes how \zmq concepts map to those in the model and the chapter finishes with describing details about these design elements.
+
+\section{Mapping Model to \zmq}
+
+Ports are associated with \zmq sockets. 
+The type of the port is associated with the \zmq socket type (\pub, \sub, etc). 
+Because of the scaling property of the model it is not possible to strictly map the concepts of node and role to a \zmq based implementation. 
+Rather, it is inside this unspecified mapping that the creativity and wisdom of the developer is expected to emerge. 
+A node from the model is implemented by some code that manages ports. 
+Or, again, we may think of a node as an aggregation of many atomic nodes.
+If a node satisfies an appropriate mapping of semantic behavior and port types then it satisfies the associate role.
+
+With that vagueness said, it is expected that several patterns will emerge and indeed are already emerging in the prototype software described in Chapter~\ref{ch:prototype}. 
+There are two main granularity that a node is expected to implement one or more roles and these are described in the remaining subsections.
+
+\subsection{Actors}
+
+As described above the \czmq class \zactor provides a useful idiom of bundling a thread safe pipe, a thread, and a function to run in the thread. 
+Actor implementations are used to provide the most atomic of nodes.
+A given actor is likely to implement multiple roles\footnote{In fact ``actor'' can be considered one role}. 
+The important technical fact to understand about actors is that by construction implement their roles through tightly coupled code. 
+This tight coupling should be avoided in general but in some cases it is critical.
+\subsection{Processes}
+
+An actor can not run in isolation. 
+Ultimately, it needs a \texttt{main()} thread from which it may be created.
+And so, the next higher level of mapping model concepts to implementation is that of an executable process aka a program. 
+A process will typically create a number of actors and in the main thread service their pipes in a loop. 
+Typically a process-level node will have a single Zyre node and will populate its identifying attributes based on identifying characteristics of its actors. 
+It's main thread will also be responsible for communicating any command line arguments or other initial configuration content to itself and its actors as appropriate.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[height=12cm]{roles.pdf}
+  \caption{An example process implementing many internal roles and exposing a few to the network.  See text for extensive details.}
+  \label{fig:fenode}
+\end{figure}
+
+Figure~\ref{fig:fenode} illustrates one possible conceptual process which implements many roles. 
+Most of these nodes implementing roles are fully connected internally and very few ports (sockets) are available for external connections. 
+This is good as it hides complexity. 
+However, it limits the flexibility to insert additional functionality by connecting other nodes to these internal ports. 
+The remainder of this section describes this example but first a note that the roles in this example are not following form a careful role specification.  An initial attempt at that is in Section~\ref{sec:details}.
+% \fixme{Make sure I add that}.
+
+Starting from the outside going in, this example exposes the following roles outside of its own process  space.
+
+\begin{description}
+\item[Zyre] the process has a single shared Zyre role.  The Zyre name is then specific to the process and the Zyre headers are constructed by aggregating across all internal roles.  If any response to discovery of new or loss of existing Zyre peers or participation of Zyre messaging is required with any of the internal nodes then it is up to the \texttt{main()} thread to marshal Zyre messages appropriately.  An alternative design could place a unique Zyre role on one or more of the internal nodes.  Understanding the trade off of these two extremes is where a wise developer will need to earn their keep.  As the Zyre node is a ``canned'' role it is necessarily using network socket connections.  
+
+\item[log producer] any logging information collected by the actor pipes and elsewhere are sent to a \pub socket.  The figure shows a connection from it to the \sub socket of a ``Logger'' application which provides a ``log reciever'' role.  This connection is likely, but need not be, configured with a scheme of \texttt{tcp}.
+
+\item[ECR subscriber] the concept of \textit{epoch} will be describe in Chapter~\ref{ch:details} but for now just understand it is a way to dynamically reconfigure the behavior of the process node.
+  % \fixme{make sure I do}
+  Because of the implications of such external control this connection is both controlled for both authentication and authorization.  This security mechanism uses the \zmq cryptography features of CurveZMQ.  It will not be described in detail other than to say it is rather simple, well tested, far more secure than needed here (we just guard against accidental mistakes) and not deleterious of performance as used.  To have a conceptual understanding, it works in a manner which is very similar to how SSH uses public/private keys.  This role likely makes connections over a \texttt{tcp} transport although for testing all on a single computer the transport could be \texttt{ipc}.
+
+\item[TPS source] the primary external role provided by this example is one of a DUNE FD DAQ \textit{trigger primitive source}. 
+  The details are DUNE specific but for here understand that the exposed \pub socket makes available a message that contains a summary of channel-level activity over some portion of a detector module and covering some time which is shorter or comparable to the maximum drift time.  The transport chosen may be \texttt{tcp} however, given the likely high message rate but low data rate it may be more efficient to consume these over \texttt{ipc} or in fact construct a new process which adds consumers as actors and connecting via \texttt{inproc} transport.
+\end{description}
+
+The internal roles and their connections are described next. 
+These are all assumed to use transport of \zmq type \texttt{inproc} (thread safe pipes). 
+In each internal node is implemented as a \zactor with an internal loop servicing sockets existing in the corresponding thread. 
+The main function is not a \zactor but also has a similar main loop. 
+The visual language here is that any arrows going into a loop circle indicate that the corresponding socket has been added to a \zmq poller. 
+That is, the loop blocks on the poller and awakes when input is available for reading. 
+The body of the loop performs some operation on the input based on which socket it arrived on. 
+This operation may include constructing messages to send on any arrow that is outward bound from the loop circle.
+
+The internal nodes are now described staring upstream as the data flows.  Each node implements the \zactor role which is omitted from their description.
+
+\begin{description}
+\item[WF sources] these nodes provide a single role, \textit{waveform tick source}. 
+  In the figure there is nothing which specifies how the waveform data is provided. 
+  One implementation of the role may pre-load simulated or real data into RAM and then ``play'' it out at approximately one tick per sample period in soft real time. 
+  Another implementation may either read hardware devices directly or hook into middle-ware that governs some shared RAM buffer to which the hardware device driver DMAs data. 
+  The process is best implemented so that switching between these two roles is governed by command line configuration. 
+  A named factory method is best used to allow dynamic creation of the role by calling code in shared library plugins. 
+  A lesser program may simply hard-code it.
+
+\item[TP sources] these nodes provide two roles, one a \textit{waveform tick sink} and the other a \textit{channel activity source}. 
+  In the loop they apply a \textit{payload algorithm}. 
+  As in the role creation description above, this payload is best written as a concrete implementation of a C++ abstract base class so that it may be dynamically constructed at job start up based on configuration. 
+  This abstraction is not required but allows easily reusing the rest of the process to test out competing payload algorithms by an end user.
+
+\end{description}
+
+Some additional comments about this example. 
+The process may be implemented to allow the parameterization of the multiplicity of the various nodes. 
+Instead of only two ultimate source of data, the main thread may instead create more or less. 
+The unit of data source is not specified in this example. 
+Assuming the DUNE single-phase detector module, it may be the two collection wire planes of one APA or it may be represent two FEMB's worth of collection wires, 48 channels each. 
+A well written process will allow both the ``span'' and the ``stride'' to be configurable to allow optimizing system-level performance.
+
+\subsection{Subgraph}
+
+The final level of mapping to the model is grouping multiple processes together into a subgraph (again, thus conceptually one node). 
+This grouping can then be instantiated across large, common parts of the detector (or other operational domain). 
+As will be exemplified in Section~\ref{sec:ecr} and \ref{sec:self-healing}, the grouping can be made to dynamically adjust to intentional or unintentional changes.
+
+To express this subgraph-as-node it is expected that a high level configuration system will be used to construct instances of the the subgraph as a function of some input parameters. 
+The author has experience with such systems in the context of configuring the Wire-Cell Toolkit\footnote{\url{https://github.com/WireCell/wire-cell-cfg/blob/master/pgrapher/README.org}} and in visualizing graphs representing large systems including the DUNE DAQ\footnote{\url{https://github.com/brettviren/gravio}} using the \href{https://jsonnet.org/}{Jsonnet data templating language}. 
+Whatever the mechanism, this large scale complexity management naturally follows from a well designed process and actor layers.
+
+\subsection{Scale Invariance}
+
+Finally one remaining mapping pattern is to provide scale invariance. 
+That is, a mapping to allow a node to be easily used at any of the three above layers. 
+This mapping is implicit in some of the guidance given in the large example above. 
+Namely if there is a loose coupling at the actor level one can write processes which instantiate smaller subgraphs of a few nodes or even of individual actors. 
+In the extended example, the boxes labeled ``Fragment One'' and ``Fragment Two'' could be instantiated each in one process with their \textbf{main()} providing connectivity to the Zyre and \textit{log producer} roles. 
+This then allows their use at the subgraph level of abstraction without changing a line of code in the role. 
+If the guidance on use of named factory pattern for dynamic construction of roles from shared library plugins is followed then the \texttt{main()} process may be reusable for many implementations of a given role. 
+If this abstraction is carried further than a single process may construct arbitrary subgraphs based on configuration.
+Ultimately, this configuration mechanism can be made identical to the one used to express aggregation at the subgraph level.
+This ultimate design will greatly facilitate exploring the optimization space spanned by the three aviailble \zmq transports, the available hardware. 
+This space is combinatoric and that can not be escaped. 
+However, by having this scale invariant configuration its vastness can be explored much faster than if hand crafted software is written for any given test point.
+
+
+
+\section{Nodes}
+
+A node in the graph as described in the model is identified with an executable program
+
+\section{Roles}
+
+As described in Section~\ref{sec:model} about the model, \dexnet is composed in a graph structure of nodes fulfilling roles. 
+A role is defined by a
+
+\begin{itemize}
+\item semantic definition of purpose.
+\item set of \zmq sockets of certain type.
+\item communication protocol including message data schema.
+\end{itemize}
+
+Most roles are defined in terms of the set of message types they produce or consume. 
+For example, a ``trigger candidate processor'' has at least two roles: ``trigger primitive sink'' and ``trigger candidate source". 
+Brought together these two roles make up an element of a trigger pipeline.  
+
+.................
+A particular role is conceptually like an Object Oriented abstract base class except instead of supplying required pure-virtual methods it must provide required socket types which participate in the protocol associated with the role.
+
+To implement a concrete role it is convenient, but not required, to provide a \zmq \zactor function. 
+This is simply a function which accepts two arguments: a \pair socket and a configuration data structure specific to the role instance.
+
+This function will be run inside a thread by ZeroMQ by a creator thread (typically the ``main'' thread). 
+The role function communicates with its creator via the provided \pair socket and typically shares no memory with any other threads. 
+The function is responsible for creating any other sockets required by the role.
+
+After this and any other initialization, possibly informed by the input configuration data structure, the function typically enters a loop which is driven by servicing available input messages on any of its sockets. 
+Socket servicing is likely facilitated by the \czmq \url{http://czmq.zeromq.org/manual:zpoller}{[poller} class.
+
+\chapter{DUNE DAQ Details}
+
+\section{Interfaces}
+
+\chapter{Prototype}
+
+\chapter{Future work}
+
+\end{document}

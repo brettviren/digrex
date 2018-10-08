@@ -1,0 +1,140 @@
+digraph roles {
+        node[shape=box,style=rounded];
+        
+
+        subgraph cluster_cryer {
+                label="Epoch Cryer";//"decryer"?
+                cryer_zyer[label="Zyre\nNode"];
+                cryer_pub[label="config\nPUB\n(bind)\n[iron auth]"];
+                cryer_loop[label="loop", shape=circle];
+                cryer_zyer->cryer_loop[dir=both];
+                cryer_loop->cryer_pub;
+                
+        }
+
+        subgraph cluster_zyre {
+                label="Zyre Role";
+                zyre_role[label="role\nPAIR\n(bind)"]
+        }
+
+        subgraph cluster_frag1 {
+                label="Fragment One"
+                subgraph cluster_ds1 {
+                        label="Data Source Role";
+                        ds1_role[label="role\nPAIR\n(bind)"];
+                        ds1_ticks[label="ticks\nPAIR\n(bind)"];
+                        ds1_loop[label="loop", shape=circle];
+
+                        ds1_role->ds1_loop;
+                        ds1_loop->ds1_ticks;
+                        
+                }
+                subgraph cluster_tp1 {
+                        label="Trigger Primitive Source";
+                        tp1_role[label="role\nPAIR\n(bind)"];
+                        tp1_ticks[label="ticks\nPAIR\n(connect)"];
+                        tp1_tpa[label="TPA\nPAIR\n(bind)"];
+                        tp1_loop[label="loop", shape=circle];
+
+                        tp1_role->tp1_loop;
+                        tp1_ticks->tp1_loop;
+                        tp1_loop->tp1_tpa;
+                }
+        }
+        subgraph cluster_frag2 {
+                label="Fragment Two"
+                subgraph cluster_ds2 {
+                        label="Data Source Role";
+                        ds2_role[label="role\nPAIR\n(bind)"];
+                        ds2_ticks[label="ticks\nPAIR\n(bind)"];
+                        ds2_loop[label="loop", shape=circle];
+
+                        ds2_role->ds2_loop;
+                        ds2_loop->ds2_ticks;
+                        
+                }
+                subgraph cluster_tp2 {
+                        label="Trigger Primitive Source";
+                        tp2_role[label="role\nPAIR\n(bind)"];
+                        tp2_ticks[label="ticks\nPAIR\n(connect)"];
+                        tp2_tpa[label="TPA\nPAIR\n(bind)"];
+                        tp2_loop[label="loop", shape=circle];
+
+                        tp2_role->tp2_loop;
+                        tp2_ticks->tp2_loop;
+                        tp2_loop->tp2_tpa;
+                }
+        }
+        subgraph cluster_tpagg {
+                label="TPS Aggregator";
+                tpa_role[label="role\nPAIR\n(bind)"];
+                tpa_tp1[label="TPA1\nPAIR\n(connect)"];
+                tpa_tp2[label="TPA2\nPAIR\n(connect)"];
+                tpa_pub[label="Aggregate\nPUB\n(bind)"];
+                tpa_loop[label="loop", shape=circle];
+                
+                tpa_role->tpa_loop;
+                tpa_tp1->tpa_loop;
+                tpa_tp2->tpa_loop;
+                tpa_loop->tpa_pub;
+        }
+
+        subgraph cluster_main {
+                label="Some main process bringing together various roles\n (here a FE source of trigger info)";
+                labelloc=bottom;
+                
+                
+                zyre[label="zyre\nPAIR\n(connect)"];
+                tp1[label="tp\nPAIR\n(connect)"];
+                tp2[label="tp\nPAIR\n(connect)"];
+                ds1[label="ds\nPAIR\n(connect)"];
+                ds2[label="ds\nPAIR\n(connect)"];
+                tpa[label="tpa\nPAIR\n(connect)"];
+                cryer[label="update\nSUB\n(connect)\n[iron auth]"];
+                log[label="logging\nPUB\n(bind)"];
+                tpc[label="tc\nPUB\n(bind)"];
+                
+                loop[shape=circle,label="loop"];                
+
+                loop->tpc;
+                cryer->loop;
+                log->loop[dir=back];
+
+                edge[dir=both];
+                
+                zyre->loop;
+                tp1->loop;
+                tp2->loop;
+                ds1->loop;
+                ds2->loop;
+                tpa->loop;
+
+                
+        }                
+        subgraph cluster_log {
+                label="Logger";
+
+                log_zyre[label="Zyre\nNode"];
+                log_sub[label="log input\nSUB\n(connect)"];
+                log_loop[label="loop",shape=circle];
+                log_zyre->log_loop->log_sub;
+        }
+
+        zyre_role->zyre[dir=both];
+        ds1_role->ds1[dir=both];
+        ds2_role->ds2[dir=both];
+        tp1_role->tp1[dir=both];
+        tp2_role->tp2[dir=both];
+        tpa_role->tpa[dir=both];
+        
+        ds1_ticks->tp1_ticks;
+        ds2_ticks->tp2_ticks;
+        
+        tp1_tpa->tpa_tp1;
+        tp2_tpa->tpa_tp2;
+        
+        cryer_pub->cryer[color=red,penwidth=2];
+        log_sub->log[dir=back];
+        
+
+}

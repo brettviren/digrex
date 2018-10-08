@@ -1,0 +1,37 @@
+digraph bpsg {
+        rankdir=LR
+        subgraph cluster_ab {
+                node[shape=circle]
+                subgraph cluster_a {
+                        label="bipartite sugraph A"
+                        a[label="node A"]
+                        a1[label="pa1"]
+                        a2[label="pa2"]
+                        a3[label="pa3"]
+                        a4[label="pa4"]
+                }
+                subgraph cluster_b {                
+                        label="bipartite sugraph B"
+                        b[label="node B"]
+                        b1[label="pb1"]
+                        b2[label="pb2"]
+                        b3[label="pb3"]
+                        b4[label="pb"]
+                }
+                a1->a
+                a2->a
+                a->a3
+                a->a4
+
+                b1->b
+                b2->b
+                b->b3
+                b->b4
+
+                a4->b1
+        }
+
+}
+        
+        
+        

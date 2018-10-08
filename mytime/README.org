@@ -1,0 +1,113 @@
+* Digrex
+
+This describes the Digrex network.
+
+** Basics
+
+The network is implemented with software using ZeroMQ (ZMQ) for basic
+network communications and two projects based on ZMQ, the high-level C
+interface CZMQ for simplifying the code and Zyre which provides fast
+decentralized discovery on the network and group messaging.
+
+The Digrex network is then defined as a specification for a number of
+roles and for the messages they accept and produce.  A single program
+typically implements more than one role.  A role typically maps to a
+CZMQ "actor" which is at its most simplest is a thread with a
+thread-safe PAIR socket.  Roles may be connected via their sockets
+either across threads within one executable process, across processes
+on one computer or across the network between multiple computers.
+
+Digrex messages are described in terms of one or more ZMQ frames.
+Digrex frames may comprise the entire message or may follow after some
+ZMQ frames (eg, in the case of Zyre messaging).  In general, a Digrex
+message begins with a frame holding a short string which defines what
+type of Digrex message it is.  The following frames are type-specific
+and may be simple strings or packed as a type-specific Protocol
+Buffer.  
+
+In the case where a role has a PUB socket, there is a one-to-one
+correspondence between a PUB topic name and the Digrex message type it
+produces in that topic.  The topic and message type names are used
+interchangeably in the description below.
+
+Communications between roles within one processes is trusted.
+Communication between processes on the same computer or between
+computers may require authentication and authorization as the level of
+socket connection.  For now this is ignored.
+
+** Roles
+
+This section lists the roles that may be found in the network.
+Messages accepted or produced by a role are simply listed and
+described in detail in the section [[Messages]].
+
+*** Zyre
+
+The Zyre role implements a "node" in the Zyre communication network.
+Each process must provide the Zyre role.  This role must participate
+in Zyre discovery and messaging.  
+
+The role must participate in Zyre discovery by providing:
+
+- a unique, human-friendly name.
+- enumeration of all other roles it fulfills via Zyre headers.
+- any role-specific identity via additional headers.
+
+The role must participate in Zyre messaging by:
+
+- joining all Zyre groups corresponding to the other roles of the process
+- accepting all role-specific messages that may be sent via Zyre ("SHOUT" or "WHISPER")
+- producing any role-specific messages to the Zyre network
+
+*** Trigger Primitive Source
+
+A trigger primitive source (TPS) role has the following sockets.
+
+- role pipe :: PAIR, input: (=ECR=, =DIE=), output: (=TPA=)
+- data pipe :: PAIR, input: (=TICKS=), output: ()
+
+*** Trigger Candidate Source
+
+A trigger candidate source role has the following sockets:
+
+- role pipe :: PAIR, input: (=ECR=, =DIE=), output: (=TFA=)
+- data pipe :: .....
+
+** Messages
+
+- =TPA= :: trigger primitive activity
+
+** Socket makeup
+
+A minimal node in the network has:
+
+- a Zyre presence with a human-friendly name
+
+- a PUB socket on a port given in the Zyre headers producing log info and potentially node-specific messages.
+
+Some nodes may have additional sockets depending on their role.
+
+
+** Node Roles
+
+There are a fixed number of roles in the network.  There may be multiple nodes providing some roles and some nodes may provide multiple roles.
+
+- trigger primitive source (TPS) :: a source of =PA= messages with  =PrimitiveActivity= 
+
+
+Every node asserts identity via a number of Zyre headers:
+
+- =Digrex-Node-Category= :: one of a fixed set which indicates what the PUB produces
+  - =trigger-primitive= :: a source of "trigger primitives" usually about activity at the channel level
+  - =trigger-candidate= :: a source of "trigger candidates" usually across
+  - =trigger-command= :: a source of "trigger commands" usually the MTL
+  - =data-selector= :: a source of data selected by address and time ranges.
+- =Digrex-Node-Address= :: a category-specific address string
+
+
+** Command and Control Messages 
+
+Nodes shall join certain Zyre groups and expect messages on their Zyre
+socket either via SHOUT to that group or direct WHISPER.  
+
+

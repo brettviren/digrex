@@ -1,0 +1,30 @@
+* 
+
+A prototypical actor node has a control pipe an inbox and an outbox
+each connecting with a node.  Each connection implies the type of
+messages it carries.
+
+- control pipe
+  - to actor:
+    - connection and disconnection cmds
+  - from actor
+    - connection and disconnection acks
+
+* 
+
+** Toy TP source 
+
+What does it do?
+ - connect to one source of tick info
+ - accept a stream of ticks
+ - generate fake TPs given some mean rate representing some detector chunk
+ - collect TPs over some configured tick period into one message
+ - publish stream of TP messages on a port
+ - receive configuration changes on authenticated port (mean ticks per TP, tick to start)
+ - broadcast identity and port numbers
+
+states:
+
+- start :: inbox/outbox sockets of predetermined type are created but no connect/bind
+  - ~(BIND|CONNECT) box~ 
+    - ~do_link()~

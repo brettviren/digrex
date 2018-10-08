@@ -1,0 +1,48 @@
+digraph party {
+        nodesep=.5;
+        
+
+        
+        node[shape=record];
+
+        ring[shape=circle];
+
+        subgraph cluster_node1 {
+                main[shape=box, label="main thread"];
+                zyre[label="{{<name>Zyre zactor}|{<beacon>beacon\n(UDP)|<inbox>inbox\n(ROUTER)|<outbox>outbox\n(DEALER)}}"];
+                pub[label="{{<name>Emitter zactor}|{<outbox>outbox\n(PUB)}}"];
+                edge[penwidth=2];
+                main->zyre[dir=both];
+                main->pub[dir=both, label="PAIR"];
+        }
+
+        subgraph cluster_node2 {
+                main2[shape=box, label="main thread"];                
+                zyre2[label="{{<name>Zyre zactor}|{<beacon>beacon\n(UDP)|<inbox>inbox\n(ROUTER)|<outbox>outbox\n(DEALER)}}"];
+                pub2[label="{{<name>Emitter zactor}|{<outbox>outbox\n(PUB)}}"];
+                sub2[label="{{<inbox>inbox\n(SUB)}|{<name>Receiver zactor}}"];
+                edge[penwidth=2];
+                main2->zyre2[dir=both];
+                main2->pub2[dir=both, label="PAIR"];
+                sub2->main2[dir=both, label="PAIR"];
+        }
+
+        subgraph cluster_net {
+                groups[shape=tripleoctagon, label="Zyre\ngroups"];
+                udp[shape=tripleoctagon,label="UDP\nbroadcast"];
+        }        
+
+        ring->main;
+        
+        zyre:outbox->groups;
+        zyre2:outbox->groups;
+
+        pub:outbox->sub2:inbox[];
+
+        zyre:inbox->groups[dir=back,headlabel="SHOUT\nmessage"];
+        zyre2:inbox->groups[dir=back,headlabel="SHOUT\nmessage"];
+        zyre:beacon->udp[dir=both,label="name,\nendpoint,\nheaders"];
+        zyre2:beacon->udp[dir=both,label="name,\nendpoint,\nheaders"];
+        
+        
+}

@@ -1,0 +1,10 @@
+digraph bpsg {
+        rankdir=LR
+        subgraph cluster_cd {
+                node[shape=record]
+                a[label="{{<p1>pa1|<p2>pa2}|{node A}|{<p3>pa3|<p4>pa4}}"]
+                b[label="{{<p1>pb1|<p2>pb2}|{node B}|{<p3>pb3|<p4>pb4}}"]
+
+                a:p4->b:p1
+        }
+}

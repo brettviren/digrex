@@ -79,19 +79,3 @@ hand on ~localhost~.
 
 Best to start nodes in different terminals as they spew to stdout.
 
-
-* TODO
-
-- [x] ~use `pgrapher.jsonnet`~ use a more tailored graph representation.
-
-- [x] basic source-sink functionality with protobuf
-
-- [x] configure via single Jsonnet source
-
-- [ ] deployment and execution or binary driven by config
-
-- [ ] a logging node used by other nodes
-
-- [ ] multiple sources to one sink
-
-- [ ] third layer (MTL)

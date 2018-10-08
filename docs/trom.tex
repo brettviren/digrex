@@ -1,0 +1,81 @@
+\documentclass[letterpaper,article,oneside]{memoir}
+\setsecnumdepth{subsubsection}
+
+\usepackage{graphicx}
+\usepackage{xspace}
+\usepackage[dvipsnames,svgnames]{xcolor}
+\usepackage[utf8]{inputenx}
+\usepackage[margin=2cm]{geometry}
+\usepackage{subfig}
+\usepackage{siunitx}
+\usepackage{hyperref}
+
+\title{Ribbon DAQ}
+
+\begin{document}
+
+\section{Ribbon of Data}
+\label{sec:intro}
+
+DUNE FD DAQ constantly ingests a data stream from detector electronics. 
+These streams may be modeled as a flat ribbon. 
+Across the ribbon, the various sources of data make up threads of the ribbon. 
+For the most part they are identified with detector electronics channels.
+Without loss of generality the threads may be ordered across the width of the ribbon such that they are grouped along lines which allow for contiguous selection of the data from buffers. 
+The length of the ribbon is identified with time and it is likewise considered to be in discrete units which correspond to contiguous periods of time which may be selected.
+
+Of course, one may assign semantic labels or color bands in the ribbon to identify collections of channel groups. 
+Eg, to differentiate those in the SP or DP module, or to differentiate TPC vs PDS channels.
+
+The primary task of the DAQ is to examine this ribbon of data in order to
+
+- identify cells with ``interesting'' activity\footnote{Or rather, explicitly not consistent with known uninteresting activity.}
+
+- select the associated data
+
+- dispatch the selected data
+
+\section{Ribbon of Activity}
+
+A ribbon of activity is produced from the ribbon of data.
+It is defined on the same channel group and discrete time period basis as it's input. 
+The result has cells with zero or more scalar attributes. 
+Most output cells are null. 
+Attributes indicate the amount and type of activity. 
+Application of attributes can be informed by the data itself as well as external information.
+
+For example, the SP TPC may have one APA which is intentionally receiving FE pulser charge injection calibration while the remaining APAs are expected to operate in some nominal condition. 
+One transform appropriate for identifying pulse trains is run on the channel groups from this APA. 
+
+Meanwhile the other portion of the TPC part of the ribbon is examined for signatures of activity using some nominal transform.
+This is identified with trigger primitive and trigger candidate production. 
+
+An intermediate failure of HV could bring down one APA or some pathology could excite excess noise conditions in one or more APAs. 
+Or a computer could crash and may later come back. 
+To the extent that these exceptional and possibly dynamic conditions can be identified they can inform which activity identification procedure to apply to a given channel group, or even channel.
+
+That is, at any given point in time along the length of a ribbon there is a per channel group vector of activity identification procedures to apply.
+The content of this vector is the job of Run Control. 
+In order to allow an update to apply to a particular point in ``ribbon time'' it must occur in advance (in real time) and along with the target ribbon time.
+
+This mechanism allows for DAQ reconfiguration to occur without any substantal real time delay and without loss of data. 
+This is one point where the mechanism must be applied and there are others. 
+Again, Run Control must orchestrate the prior dissemination of these ``ribbon time'' based updates.
+
+\section{Ribbon of Selection}
+
+The activity ribbon gives semantic determination of regions of space and time. 
+Regions of activity do not trivially equate to desired regions of selection. 
+Just as we determined activity based on static configuration or dynamic environment information so do we want to map activity to selection.
+
+One example is the determination of activity consistent with a supernova neutrino burst (SNB) simultaneously with acquiring pulser data. 
+We do not want to limit the readout of the channels being calibrated to just periods of pulse train activity. 
+Rather their data should be selected for at least \SI{30}{\second} along with the channels from which the SNB signature was identified.\footnote{Outside of this model but ideally, a prompt signal will inhibit pulser charge injection or similar otherwise unwanted activity generators immediately after SNB candidate activity is identified.}
+
+The output of this process is then another ribbon with cells marked with semantic attributes related to selection.  These attributes would include instructions for dispatch.  Eg, one to indicate pulser train data should be sent to a calibration file stream, nominal data to a nominal file stream and likely SNB files need special handling.
+
+This process can be identified with the Module Trigger Logic unit, or really, any pinnacle of the hierarchical trigger system which mediates between the backend readout system (event builder).
+
+
+
+\end{document}

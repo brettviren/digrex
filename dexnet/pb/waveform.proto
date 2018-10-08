@@ -1,0 +1,9 @@
+// data related to waveform level
+
+syntax = "proto3";
+
+// Describe a stream of data from a group of channels
+message ChannelGroupStreamDesc {
+        // Number of channels in the group.
+        uint32 nchannels = 1;        
+}

@@ -1,0 +1,366 @@
+#+title: Distributed Executable Network
+
+* Meta :noexport:
+
+** What I want to write
+- scope and introduction
+- requirements
+- model
+  - multiport nodes implementing roles defining those ports
+  - defined messages
+  - discoverability, etc.
+- design
+
+- initialization
+- configuration
+- discovery and assembly
+- directed reconfiguration (epoch change requests)
+- dynamic reconfiguration (self healing)
+
+** Detector addressing
+
+- succinct, hierarchical logical address which provides netmask type operations.  
+- the field semantics of this address must be predefined and pervasive.
+- the semantics of lower levels depend on higher levels.
+- approximately generic template: ~<mod#>-<unit#>-<part#>-<...>~
+
+** Transparency
+
+- help make the DAQ understandable to collaborators
+
+- put it on a basis that engenders long term support transferred to
+  new individuals over decades
+
+** Robustness
+
+- In not-so-high rate message flows may be multiply subscribed to
+  allow robustness against some failures.  For example, two separate
+  computer may each house their own MTL.  Each may subscribe to all TC
+  sources and the egress manager may subscribe to each.  One is
+  initially "listened" to and the others messages are dropped.
+  If/when Zyre notifies the egress manager that one has died, the EM
+  may smoothly start "listening" to the other.  Hardware and bandwidth
+  permitting this could allow redundant TC processors as well.
+
+- Remote access to dexnet.  This covers maybe more than robustness.
+
+- Include multi-connected paths of information, ie a layered neural
+  net topology.
+
+- Giovanna and Alessandro thinking about the Epoch Change Request idea.
+
+** Interfaces
+
+*** artDAQ
+
+There needs to be two components with one "face" toward dexnet and one
+face toward artDAQ:
+
+ - a "Trigger Command Executor" aka "Egress Manager" aka "your
+   favorite name here".  From the point of view of dexnet it simply is
+   a subscriber to the MTL's trigger commands.  On the artDAQ side it
+   will delegate the execution of the trigger command to a "Event
+   Builder" taken from a pool of idlers.  
+
+ - an "Event Builder" will query every front end Data Selector via the
+   DS's ROUTER socket and probably via a DEALER socket.  It will
+   select the front end and the requested time range based on the
+   trigger command information.
+
+*** CISC
+
+Based on the [[https://indico.fnal.gov/event/16526/session/51/contribution/209/material/0/0.docx][draft interface note]] some interfaces may include
+
+  - "run" number and other status, errors.
+
+  - track metrics over time to identify slowly failing component (mean
+    rates of TP, TC or candidates from each and all sources).
+
+  - things like LAr purity monitoring firing times and measurements.
+
+  - accept safety system info.
+
+  - automatically exclude a misbehaving APA from trigger.
+
+  - emergency power off of HV initiated by CISC, need prompt indicator
+    to DAQ (eg SNB trigger).
+
+  - accept CISC info to inject into data stream
+
+  - computer loads, temps and other health
+
+  - Data quality monitoring?
+
+It remains to be determined exactly how dexnet will be involved in all
+this.  For DAQ status and errors, a dexnet->CISC bridge is needed.
+What the CISC side of that bridge is not known.  For server health,
+maybe Ganglia is used in which case dexnet is not involved.  If
+Ganglia is used for server health it gives the option that the DAQ
+status and error could be injected into Ganglia giving CISC a uniform
+interface to these classes of information.
+
+
+
+** Partition vs Data Selection Routing Matrix
+
+Dynamic configuration via a routing matrix.
+
+A "partition" is complete separation of all behavior.
+
+Back-end partition work in protoDUNE.
+
+
+* Introduction and Scope
+
+The DUNE Far Detector (FD) DAQ must ingest an enormous amount of data
+from multiple, distributed sources of various packet and data rates,
+periodicity, information content and importance.  Based on the
+information content of its primary detector data streams it must
+determine a tiny fraction which is interesting for physics analysis,
+select it and produce it as output.  It must remain in constant
+operating while adapting to changes be they intentional and human
+directed, unexpected failures or variation in detector conditions.
+
+The DAQ hardware, firmware and software elements that ingest, consume,
+process, reduce, select, compress, format and finally store the output
+data are numerous and varied in their purpose, implementation,
+processing rates, data consumption and production rates.  They are not
+directly the subject of this note.  Rather, the subject is that of an
+interstitial system in which these elements operate, communicate, and
+are configured, monitored and controlled.  It is through this
+interstitial system that the individual elements work in concert to
+provide a distributed executable network.  This interstitial system is
+given, for lack of a better one, the working name *dexnet*.
+
+The remainder of this note gives the relevant requirements for dexnet,
+provides a simple narrative model, describes its design in more
+detail, presents some specific DUNE FD DAQ issues and how dexnet
+addresses them and finally it describes an initial prototype
+implementation which may be extended for production with additional
+development effort.
+
+* Requirements
+
+The dexnet interstitial communication system must provide for the following.
+
+- Allow messages to be reliably sent between the various elements of the DAQ.
+- Provide robustness in the face of errors and contribute to uninterrupted operation.
+- Allow for initial configuration of elements and of their connections.
+- Allow for reconfiguration with minimal or not interruption to operation.
+- Be extensible to currently understood variability of elements (eg,
+  the elements of the SP/DP FD modules) as well as provide high
+  expectation to support future elements (eg, elements of FD module
+  M3/M4).
+- Support the elements and integrate with any peer systems with
+  reasonably achievable expenditures of effort.
+- Support an expectation of sufficient support for the lifetime of the
+  experiment.
+
+* Model
+
+Dexnet can be modeled as a /directed, cyclic port graph/.  The term
+"port" means that the graph may be decomposed into bipartite subgraphs
+consisting of exactly one vertex of type "node"[fn:node] and one or
+more vertices of type "port".  These bipartite subgraphs are then
+allowed to further connect only via their "port" vertices.  Two ways
+to visualize this structure are given in Figure [[fig:bpsg]].
+
+#+caption: Two illustrations of the same decomposition of the dexnet graph into two subgraph consisting of one "node" vertex and multiple ports where the subgraphs are connected through one each of their ports.
+#+label: fig:bpsg
+#+ATTR_LATEX: width=5cm
+| [[./bpsg.pdf]]  |
+| [[./bpsg2.pdf]] |
+
+
+It can be
+simpler to imagine these bipartite subgraphs as a single nodes with
+labeled
+
+
+Obviously, port graphs have a scaling
+feature where any disconnected subgraph can be recast as a single
+"node" containing all the unconnected ports.  Any connected ports can
+be considered internal to this new aggregate "node" and ignored for
+the purpose of forming further connections.  From here on, we will use
+the term "node" to describe any level of such scaling and where
+important to distinguish the finest possible scale we will say "atomic
+node".
+
+[fn:node] It is granted that this is somewhat a misnomer as "node" and
+"vertex" are typically synonymous in graph theoretical terms.  Also
+note that this "node" is not necessarily associated with a "computer
+node".
+
+Through ports, discrete messages are passed.
+
+
+
+
+An instance of an executable
+program is associated with a given node (aka vertex) of the graph.  A
+given node is said to express a number of roles.  A role gives a node
+character as to what operations it performs and how it interacts with
+other nodes.  Specifically a role is expressed by providing a node
+with a number of "ports" or sockets.  Through ports, nodes are
+connected to form graph edges.  Ports exhibit specific behavior with
+regards to how they produce or consume messages and to what types of
+messages they pass.  
+
+With such a graph model, the DAQ operation then becomes one of data
+flowing from nodes, along edges and into nodes.  Data input to a node
+may be processed by the element or elements managed by that node and
+results may be then output.  This gives a simple coherent model but
+the act of constructing the graph and marshaling data through it
+(executing the graph) must still be understood.  Both operations are
+dynamic.  The graph must be rewritten "in place" and while respecting
+the data that is in-flight.  The design will describe how this is
+performed.
+
+It is interesting to note that as a natural consequence of a graph
+made of "ported nodes" it is possible to recast a graph of nodes as
+being logically a single node which expresses the roles of its
+constituent nodes and exposes as its ports all those of its nodes
+which are not yet attached through some edge.  The meaning and
+importance of this consequence will become more clear.
+
+* Design
+
+** Base Technology
+
+To describe the design, the basis for the implementation will be taken
+as given in order to provide concrete terminology and root the design
+in proven technology.  A node port referred to in the model is
+identified with an instance of a ZeroMQ (ZMQ) socket.  The ZeroMQ
+software project and its products will not be described in detail here
+as the project provides stellar documentation.  The reader is
+encouraged to look to it for background information.  
+
+A few basic concepts are given here.  ZMQ sockets are high level
+abstractions on top of the low level system facilities of: thread safe
+queues, Unix domain sockets (aka "named pipes") and TCP sockets.  They
+provide a uniform interface regardless of which of these three types
+of connections are used for the actual transport.  Choice of
+connection type is set at run-time with a string holding an address
+(eg ~tcp://hostname:port~).  Unlike low level TCP sockets, ZMQ sockets
+do not require a strict "client/server" pattern although one side
+"binds" to an address (server-like) and one side "connects" to that
+address (client-like).  
+
+A ZMQ socket is of a particular type that defines its functional
+behavior.  The types which are most important in this design are:
+
+- ~PAIR~ :: message may only flow between an exclusive pair of
+            sockets.  This is often used for forming a pair of queues
+            to allow two different threads to safely communicate.
+
+- ~PUB~ :: messages are sent out to multiple receivers and may be
+           pre-filtered so that unwanted messages are not sent.
+
+- ~SUB~ :: the receiver of ~PUB~ messages.  A ~SUB~ socket may
+           subscribe to a prefix topic in order to limit which
+           messages to get.  A ~SUB~ socket may subscribe to multiple
+           ~PUB~ sockets.
+
+- ~ROUTER~ :: a "server like" socket but which operates
+              asynchronously.  Messages sent to this socket may or may
+              not get reply and the reply may be out of order
+              (depending on desired application behavior).  This is
+              used for Data Selector queries and likely accessed with
+              one of the two following:
+
+- ~REQ~ :: a "client like" socket which sends a message and
+           synchronously waits for a reply.  It may talk to a
+           ~ROUTER~.  This is likely to be used, if at all, for
+           special purpose and local queries to a Data Selector.  It's
+           benefit is simpler application code if the synchronous
+           behavior is acceptable.
+
+- ~DEALER~ :: a "client like" socket which acts like ~REQ~ but
+              operates asynchronously, allowing for out of order
+              replies.  This is likely to be used for the "Event
+              Builder".
+
+- ~REP~ :: a "server like" socket which is synchronous.  This is not
+           expected to be useful in dexnet but is listed here for
+           completeness.
+
+
+The design will also make use of the high-level C/C++ interface to
+ZeroMQ (CZMQ) provided by the ZeroMQ project.  In particular the
+abstraction of an "actor" (called ~zactor~) is used.  In CZMQ
+terminology this is a "class"[fn:czmqclass] which bundles together a
+thread, a function to run in the thread and a thread-safe pipe in the
+form of two ZMQ ~PAIR~ sockets to allow the creator to safely
+communicate with its actor.
+
+[fn:czmqclass] Conceptually the term "class" is used in the Object
+Oriented meaning however the implementation is C based.  The class
+object is an opaque data object (pointer to an underlying struct) and
+the class methods are functions which take this data object as an
+argument.
+
+Finally, the ZeroMQ project Zyre will be used.  Zyre implements the
+ZRE protocol which provides discovery, presence and group messing.
+Zyre is in implemented in the form of a ZMQ actor like other dexnet
+components and so function as a node mixin in a sense (described more
+later).  Zyre discovery allows nodes to announce on the local network
+their identity in the form of a name an a set of named parameters.
+Presence allows for notification upon a node disappearing from the
+network.  Finally, group messaging provides a way to send and receive
+messages via an abstract group definition.  The design will describe
+how this these mechanisms are utilized.
+
+** Nodes
+
+A node in the graph as described in the model is identified with an
+executable program
+
+** Roles
+
+As described in Section [[Model]] about the model, dexnet is composed in a
+graph structure of nodes fulfilling roles.  A role is defined by a
+
+- semantic definition of purpose.
+- set of ZeroMQ sockets of certain type.
+- communication protocol including message data schema.
+
+Most roles are defined in terms of the set of message types they
+produce or consume.  For example, a "trigger candidate processor" has
+at least two roles: "trigger primitive sink" and "trigger candidate
+source".  Brought together these two roles make up an element of a
+trigger pipeline.  
+
+- Zyre presence
+- a source or sink of a particular set of message types
+- 
+
+A particular role is conceptually like an Object Oriented abstract
+base class except instead of supplying required pure-virtual methods
+it must provide required socket types which participate in the
+protocol associated with the role.
+
+To implement a concrete role it is convenient, but not required, to
+provide a ZeroMQ ~zactor~ function.  This is simply a function which
+accepts two arguments: a ~PAIR~ socket and a configuration data
+structure specific to the role instance.
+
+This function will be run inside a thread by ZeroMQ by a creator
+thread (typically the "main" thread).  The role function communicates
+with its creator via the provided ~PAIR~ socket and typically shares
+no memory with any other threads.  The function is responsible for
+creating any other sockets required by the role.
+
+After this and any other initialization, possibly informed by the
+input configuration data structure, the function typically enters a
+loop which is driven by servicing available input messages on any of
+its sockets.  Socket servicing is likely facilitated by the CZMQ
+[[http://czmq.zeromq.org/manual:zpoller][poller]] class.
+
+* Details
+
+** Interfaces
+
+* Prototype
+
+* Future work
+

@@ -1,0 +1,7 @@
+digraph bpsg {
+        rankdir=LR
+        subgraph cluster_cd {
+                node[shape=record]
+                a[label="{{pa1|pa2|pb2}|{aggregate\nnode AB}|{pa3|pb3|pb4}}"]
+        }
+}

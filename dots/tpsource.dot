@@ -1,0 +1,16 @@
+digraph tpsource {
+        rankdir=LR
+        node[shape=box]
+        main[shape=circle, label="main\nloop"];
+        tpsource[shape=circle,label="tpsource\nagent"];
+        cfgsvc[label="tp cfg\nservice"]
+
+        zyre->main[dir=both];
+        cfgsvc->main[dir=both];
+        main->tpsource;
+        inbox->tpsource;
+        tpsource->outbox;
+        
+}
+
+        
