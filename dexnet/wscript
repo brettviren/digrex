@@ -1,11 +1,13 @@
 #!/usr/bin/env waf
 def options(opt):
     opt.load('compiler_c compiler_cxx')
+    opt.load('boost', tooldir='waftools')
 
 
 def configure(cfg):
     cfg.load('compiler_c compiler_cxx')
     cfg.load('protoc_cxx','waftools')
+    cfg.load('boost', tooldir='waftools')
 
     cfg.check_cfg(package='libzmq', uselib_store='ZMQ',
                   args=['--cflags', '--libs'])
@@ -25,6 +27,7 @@ def build(bld):
 
     src = bld.path.ant_glob("src/*.cc")
     apps = bld.path.ant_glob("apps/*.cc")
+    tests = bld.path.ant_glob("test/*.cc")
 
     #bld(features='c cxx', source=pbs)
     bld.shlib(features='c cxx', includes='inc include',
@@ -37,4 +40,10 @@ def build(bld):
                     includes = 'inc',
                     rpath = [bld.env["PREFIX"] + '/lib'],
                     use = 'dexnet CZMQ')
-                    
+
+    for tst in tests:           # fixme: turn into unit tests
+        bld.program(source=[tst],
+                    target = tst.change_ext(''),
+                    includes = 'inc',
+                    rpath = [bld.env["PREFIX"] + '/lib'],
+                    use = 'dexnet CZMQ')

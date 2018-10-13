@@ -1,0 +1,12 @@
+digraph fsm {
+        start->binding_inbox[label="BIND"];
+        binding_inbox->bound_inbox[label="OK"];
+        binding_inbox->error[label="FAIL"];
+        bound_inbox->ready[label="LINKED"];
+        
+        linking_inbox->ready[label="LINKED"];
+        linking_inbox->start[label="FAILED"];
+        start->linking_oubox[label="CONNECT/BIND\nINBOX"];
+        linking_outbox->start[label="LINKED"];
+        
+        
