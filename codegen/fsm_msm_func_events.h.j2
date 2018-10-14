@@ -1,0 +1,28 @@
+{# -*- c++ -*- #}
+#ifndef {{ system_name|upper }}_EVENTS_SEEN
+#define {{ system_name|upper }}_EVENTS_SEEN
+
+
+namespace {
+    // events
+    {% for e in events %}
+    {% if e.attrs is defined -%}
+    struct {{ e.name }} { 
+        {% for a in e.attrs %}
+        {{a.type}} {{a.name}};
+        {%- endfor %}
+        {% set comma = joiner(", ") %}
+        {{ e.name }}({% for a in e.attrs -%}{{comma()}}{{a.type}} {{a.name}}{%endfor%})
+            {%for a in e.attrs %}{{ ": " if loop.first else ", "}}{{a.name}}({{a.name}}){%endfor%}
+        {
+            {% if e.body is defined -%}{{ e.body|indent(12) }}{% endif %}
+        }
+    };
+    {% else -%}
+    struct {{ e.name }} {};
+    {%- endif -%}
+    {%- endfor %}
+    
+}
+
+#endif

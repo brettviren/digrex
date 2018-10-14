@@ -1,0 +1,25 @@
+{# -*- c++ -*- #}
+#ifndef {{ system_name|upper }}_TESTS_SEEN
+#define {{ system_name|upper }}_TESTS_SEEN
+
+
+void {{ system_name }}_test()
+{
+    {% for m in machines %}
+    {
+        std::cout << "Testing {{m.name}}:" << std::endl;
+        {{m.name}} fsm;
+        fsm.start();
+        std::cout << "-> " << current_state_name(fsm) << std::endl;
+        std::cout << "Test chain:\n";
+        {% for e in test_chain %}
+        fsm.process_event({{e.name}}({{ e.args if e.args is defined else "" }}));
+        std::cout << "-> " << current_state_name(fsm) << std::endl;
+        {% endfor %}
+    }
+    {% endfor %}
+}
+
+#endif
+
+

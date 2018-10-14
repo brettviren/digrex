@@ -1,0 +1,48 @@
+#!/usr/bin/env waf
+def options(opt):
+    opt.load('compiler_c compiler_cxx')
+    opt.load('boost', tooldir='waftools')
+
+
+def configure(cfg):
+    cfg.load('compiler_c compiler_cxx')
+    cfg.load('boost', tooldir='waftools')
+    cfg.find_program('jsonnet', var='JSONNET')
+    cfg.find_program('j2', var='J2')
+
+def build(bld):
+
+    # really, need a waf scanner....
+    util_jsonnet = bld.path.find_resource('fsm.jsonnet')
+
+    model = "fsm_test"
+
+    model_jsonnet = bld.path.find_resource('%s.jsonnet' % model)
+    model_json = bld.path.find_or_declare(model_jsonnet.name.replace('.jsonnet','.json'))
+
+    system = "fsm_msm_func"
+
+    # Compile jsonnet to json
+    bld(source=model_jsonnet, target=model_json,
+        rule="${JSONNET} -V system=%s -o ${TGT} ${SRC}" % system)
+    bld.add_manual_dependency(model_json, util_jsonnet)
+
+
+    # Code generation
+    for j2src in bld.path.ant_glob("*.j2"):
+        bld(source=[j2src, model_json],
+            target=j2src.name.replace(".j2",""),
+            rule="${J2} ${SRC} > ${TGT}", shell=True)
+
+
+    # Compile C++
+    #bld.program(source="fsm_msm_euml.cc", #target="fsm_msm_euml", use = 'boost')
+
+    bld.program(source="%s_main.cc"%system, 
+                target="%s"%system,
+                includes=".",
+                use='boost')
+
+
+# jsonnet fsm_test.jsonnet > fsm_test.json &&  j2 fsm_msm_euml.cc fsm_test.json > fsm_test.cc && g++ -o fsm_test fsm_test.cc 
+    

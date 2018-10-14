@@ -1,0 +1,40 @@
+{# -*- c++ -*- #}
+#ifndef {{ system_name|upper }}_MACHINES_SEEN
+#define {{ system_name|upper }}_MACHINES_SEEN
+
+#include "{{ system_name }}_actions.h"
+#include "{{ system_name }}_events.h"
+#include "{{ system_name }}_states.h"
+
+#include <boost/msm/back/state_machine.hpp>
+
+#include <vector>
+#include <string>
+
+namespace {
+    {%- for m in machines %}
+    {% set mfe = m.name + "_" %}
+    struct {{mfe}} : public boost::msm::front::state_machine_def<{{mfe}}>
+    {
+        typedef {{m.initial}} initial_state;
+
+        //    Start|Event|Next|Action|Guard
+        struct transition_table : boost::mpl::vector<
+        {% for r in m.table %}    boost::msm::front::Row <{{r.source}},{{r.event}},{{r.target if r.target is defined else "boost::msm::front::none"}},{{r.action if r.action is defined else "boost::msm::front::none"}},{{r.guard if r.guard is defined else "boost::msm::front::none"}}>{{"" if loop.last else ","}}
+        {% endfor -%}
+        > {};
+
+    };
+    typedef boost::msm::back::state_machine<{{mfe}}> {{m.name}};
+
+    static const std::vector<std::string> {{m.name}}_state_names = {
+        "{{ m.states|join('", "') }}"
+    };
+    std::string current_state_name({{m.name}}& fsm) {
+        return {{m.name}}_state_names[fsm.current_state()[0]];
+    }
+
+    {% endfor %}
+}
+
+#endif

@@ -1,0 +1,25 @@
+{# -*- c++ -*- #}
+#ifndef {{ system_name|upper }}_STATES_SEEN
+#define {{ system_name|upper }}_STATES_SEEN
+
+#include <boost/msm/front/state_machine_def.hpp>
+#include <boost/msm/front/functor_row.hpp>
+#include <boost/msm/front/euml/common.hpp>
+#include <boost/msm/front/euml/state_grammar.hpp>
+
+#include <vector>
+#include <string>
+
+namespace {
+    {% for s in states %}
+    // {{s.name}} state:
+    {%- if s.enter is defined or s.exit is defined %}
+    struct {{s.name}}_tag { };
+    typedef boost::msm::front::euml::func_state<{{s.name}}_tag, {{ s.enter if s.enter is defined else "no_action"}}, {{ s.exit if s.exit is defined else "no_action"}}> {{s.name}};
+    {% else %}
+    struct {{s.name}} : public boost::msm::front::state<> { };
+    {% endif %}
+    {%- endfor %}
+}
+
+#endif

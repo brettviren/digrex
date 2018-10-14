@@ -1,0 +1,50 @@
+{# -*- c++ -*- #}
+#ifndef {{ system_name|upper }}_ACTIONS_SEEN
+#define {{ system_name|upper }}_ACTIONS_SEEN
+
+#include <iostream>             // for likely body
+
+namespace {
+    //
+    // State enter/exit actions
+    //
+    
+    {% for a in enter_exits %}
+    struct {{ a.name }} {
+        template <class Event, class FSM, class STATE>
+        {%- if a.body is defined %}
+        void operator()(Event const& event, FSM& fsm, STATE& state)
+        {
+            {{ a.body|indent() }}
+        }
+        {% else %}
+        void operator()(Event const&, FSM&, STATE& )
+        {
+        }
+        {% endif %}
+    };
+    {% endfor %}
+    
+    //
+    // Transition actions
+    //
+
+    {% for a in transitions %}
+    struct {{ a.name }} {
+        template <class Event, class FSM, class SrcState, class TgtState>
+        {%- if a.body is defined %}
+        void operator()(Event const& event, FSM& fsm, SrcState& src, TgtState& tgt)
+        {
+            {{ a.body|indent() }}
+        }
+        {% else %}
+        void operator()(Event const& , FSM& , SrcState& , TgtState& )
+        {
+        }
+        {% endif %}
+    };
+    {% endfor %}
+    
+}
+
+#endif
