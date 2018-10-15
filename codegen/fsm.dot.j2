@@ -1,0 +1,44 @@
+{%- macro dotitle(obj) -%}
+<<table border="0" cellborder="0" cellpadding="3" bgcolor="white">
+<tr><td bgcolor="black" align="center" colspan="2"><font color="white">{{ obj.name }}</font></td></tr>
+{%- if obj.entry is defined and obj.entry -%}
+<tr><td align="left"><b>Enter</b>/<pre>{{obj.entry}}</pre></td></tr>
+{%- endif -%}
+{%- if obj.exit is defined and obj.exit -%}
+<tr><td align="left"><b>Exit</b>/<pre>{{obj.exit}}</pre></td></tr>
+{%- endif -%}
+</table>>
+{%- endmacro -%}
+{%- macro doaction(r) -%}
+"{{r.action.name if r.action is defined else ""}}"
+{%- endmacro -%}
+{%- macro domachine(m) -%}
+subgraph cluster{{m.name}} {
+
+        label={{dotitle(m)}};
+
+        {{m.name}}_origin[shape=point];
+
+        {% for s in m.states -%}
+        {% if s.type == 'state' -%}
+        {{s.name}}[label={{dotitle(s)}}];
+        {% else -%}
+        {{ domachine(s) }}
+        {% endif -%}
+        {%- endfor %}
+
+        {{m.name}}_origin->{{m.initial}};
+
+        {% for r in m.table -%}
+        {{ r.source.name }}->{{ r.target.name if r.target is defined else r.source.name}}[label={{doaction(r)}}];
+        {% endfor %}
+}
+{%- endmacro -%}
+
+
+digraph {{model_name}} {
+        graph[style=rounded];
+        node[shape=Mrecord, style=solid];
+        
+        {{ domachine(machine) }}
+}

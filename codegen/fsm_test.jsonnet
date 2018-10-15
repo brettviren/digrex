@@ -1,42 +1,6 @@
 local fsm = import "fsm.jsonnet";
 local n = fsm.name;
 
-
-//
-// Enter/Exist actions
-//
-local enter_action = {
-    name: "State_Enter",
-    body: 'std::cout << "Entering State" << std::endl;'
-};
-local exit_action = {
-    name: "State_Exit",
-    body: 'std::cout << "Exiting State" << std::endl;'
-};
-
-
-//
-// Transition actions
-//
-
-local do_something = {
-    name: "Do_Something",
-    body: 'std::cout << "Something" << std::endl;'
-};
-
-
-//
-// States
-//
-
-local start_state = {
-    name: "Start",
-    enter: n(enter_action),
-    exit: n(exit_action),
-};
-local stop_state = start_state { name: "Stop" };
-
-
 //
 // Events
 //
@@ -54,7 +18,47 @@ local hello_event = {
  std::cout << "hello event created" << std::endl;        
 |||
 };
-local byebye_event = { name: "byebye" };
+local byebye_event = {
+    name: "byebye",
+    attrs: [ {name: "name", type: "std::string"} ],
+};
+
+
+
+//
+// Enter/Exist actions
+//
+local enter_action = {
+    name: "State_Enter",
+    body: 'std::cout << "Entering State" << std::endl;'
+};
+local exit_action = {
+    name: "State_Exit",
+//    body: 'std::cout << "Exiting State" << std::endl;'
+};
+
+
+//
+// Transition actions
+//
+
+local do_something = {
+    name: "Do_Something",
+//    body: 'std::cout << "Something" << std::endl;'
+};
+
+
+//
+// States
+//
+
+local start_state = {
+    name: "Start",
+    enter: n(enter_action),
+    exit: n(exit_action),
+};
+local stop_state = start_state { name: "Stop" };
+
 
 // 
 // Machines
@@ -101,6 +105,7 @@ local example_main = {
         },
         {
             name: n(byebye_event),
+            args: '"byebye"'
         }
     ],
 };

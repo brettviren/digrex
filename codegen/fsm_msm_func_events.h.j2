@@ -2,6 +2,9 @@
 #ifndef {{ system_name|upper }}_EVENTS_SEEN
 #define {{ system_name|upper }}_EVENTS_SEEN
 
+#include <string>
+#include <vector>
+#include <iostream>
 
 namespace {
     // events
@@ -13,10 +16,13 @@ namespace {
         {%- endfor %}
         {% set comma = joiner(", ") %}
         {{ e.name }}({% for a in e.attrs -%}{{comma()}}{{a.type}} {{a.name}}{%endfor%})
+        {%- if e.body is defined -%}
             {%for a in e.attrs %}{{ ": " if loop.first else ", "}}{{a.name}}({{a.name}}){%endfor%}
         {
-            {% if e.body is defined -%}{{ e.body|indent(12) }}{% endif %}
+            {{ e.body|indent(12) }}
         }
+        {%- else -%};
+        {% endif %}
     };
     {% else -%}
     struct {{ e.name }} {};

@@ -38,7 +38,8 @@ def build(bld):
     # Compile C++
     #bld.program(source="fsm_msm_euml.cc", #target="fsm_msm_euml", use = 'boost')
 
-    bld.program(source="%s_main.cc"%system, 
+    parts = ["main"]
+    bld.program(source=["%s_%s.cc"%(system,part) for part in parts],
                 target="%s"%system,
                 includes=".",
                 use='boost')

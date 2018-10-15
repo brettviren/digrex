@@ -18,13 +18,11 @@ namespace {
             {{ a.body|indent() }}
         }
         {% else %}
-        void operator()(Event const&, FSM&, STATE& )
-        {
-        }
+        void operator()(Event const&, FSM&, STATE& );
         {% endif %}
     };
     {% endfor %}
-    
+
     //
     // Transition actions
     //
@@ -38,9 +36,7 @@ namespace {
             {{ a.body|indent() }}
         }
         {% else %}
-        void operator()(Event const& , FSM& , SrcState& , TgtState& )
-        {
-        }
+        void operator()(Event const& , FSM& , SrcState& , TgtState& );
         {% endif %}
     };
     {% endfor %}
