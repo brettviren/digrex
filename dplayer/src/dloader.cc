@@ -7,6 +7,10 @@
 #include <vector>
 #include <deque>
 #include <iostream>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 
 int handle_outpipe (zloop_t *loop, zsock_t *outpipe, void *dloaderobj);
@@ -19,7 +23,9 @@ struct dloader_obj_t {
     int port = -1;
     std::string endpoint = "";
     zloop_t *loop;
-    bool pause=true;            // must be false to start sending data
+    bool paused=true;            // must be false to start sending data
+    int *data;
+    size_t data_size;
 
     dloader_obj_t(zsock_t* pipe=nullptr)
         : inpipe(pipe)
@@ -41,6 +47,11 @@ struct dloader_obj_t {
     }
 
 };
+
+int dloader_load(dloader_obj_t& self, const char* filename);
+int dloader_start(dloader_obj_t& self);
+int dloader_pause(dloader_obj_t& self);
+
 
 int dloader_bind(dloader_obj_t& self, std::string endpoint)
 {
@@ -79,13 +90,13 @@ int handle_inpipe (zloop_t *loop, zsock_t *inpipe, void *dloaderobj)
         }
     }
     else if (streq (command, "PORT")) {
-        zsock_send(inpipe, "si", "PORT", self.port);
+        ret = zsock_send(inpipe, "si", "PORT", self.port);
     }
     else if (streq (command, "START")) {
-        self.pause = false;
+        ret = dloader_start(self);
     }
     else if (streq (command, "PAUSE")) {
-        self.pause = true;
+        ret = dloader_pause(self);
     }
     else if (streq (command, "LOAD")) {
         char* filename = zmsg_popstr(msg);
@@ -113,12 +124,23 @@ int handle_outpipe (zloop_t *loop, zsock_t *outpipe, void *dloaderobj)
     return 0;
 }
 
+int dloader_start(dloader_obj_t& self)
+{
+}
+
+int dloader_pause(dloader_obj_t& self)
+{
+    if (self.paused) {
+        return 0;
+    }
+}
+
 int dloader_load(dloader_obj_t& self, const char* filename)
 {
     if (self.data_size) {
         // fixme: what if we have any outstanding users of this data
 
-        int rc = munmap(self.data, self.data_size);
+        int rc = munmap((void*)self.data, self.data_size);
         assert(rc == 0);
         self.data_size = 0;
         self.data = NULL;
@@ -130,11 +152,12 @@ int dloader_load(dloader_obj_t& self, const char* filename)
     }
     struct stat st;
     stat(filename, &st);
-    self.data = mmap(NULL, s.st_size,
+    void* vdata = mmap(NULL, st.st_size,
                      PROT_READ, MAP_PRIVATE|MAP_POPULATE, fd, 0);
-    if (self.data == MAP_FAILED) {
+    if (vdata == MAP_FAILED) {
         return -1;
     }
+    self.data = (int*) vdata;
     self.data_size = st.st_size;
     close(fd);
     return 0;
