@@ -2,12 +2,17 @@
 '''
 Make a memmap numpy file
 '''
+import sys
 import numpy
 
+shape = (int(sys.argv[1]), int(sys.argv[2]))
+size = shape[0] * shape[1]
+sample_type = numpy.uint16
+resolution = 1<<12
 
-arr = numpy.asarray([[1,2,3],[4,5,6]], dtype=numpy.int16)
-mmoutput = numpy.memmap("test_mmap.dat", dtype=numpy.int16,
-                        mode='w+', offset=0, shape=arr.shape)
+mmdat = numpy.memmap("test_mmap.dat", dtype=sample_type,
+                     mode='w+', offset=0, shape=shape)
 
-mmoutput[:] = arr[:]
-mmoutput.flush()
+
+mmdat[:] = numpy.random.randint(0, resolution, shape, dtype=sample_type)
+mmdat.flush()
