@@ -1,0 +1,10 @@
+The source and sink of WF need to avoid heavy use of poller/looper in
+order to get decent throughput.  The [[./test/test_pair.cc]] test shows
+how this can be done.  
+
+#+BEGIN_SRC c++
+while (zsock_events(pipe) & ZMQ_POLLIN) {
+}
+#+END_SRC
+
+This can achieve 25 GB/s on x1c thinkpad.

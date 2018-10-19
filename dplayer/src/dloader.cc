@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-
 int handle_outpipe (zloop_t *loop, zsock_t *outpipe, void *dloaderobj);
 int handle_inpipe (zloop_t *loop, zsock_t *inpipe, void *dloaderobj);
 
@@ -121,8 +120,15 @@ int handle_inpipe (zloop_t *loop, zsock_t *inpipe, void *dloaderobj)
         const int nargs = 3;
         assert(siz == sizeof(int)*nargs);
         int* data = (int*)zframe_data(frame);
-        ret = dloader_load(self, filename, data[0], data[1], data[2]);
         zframe_destroy(&frame);
+        ret = dloader_load(self, filename, data[0], data[1], data[2]);
+        if (ret < 0) {
+            zsys_error("failed to open file %s", filename);
+            ret = zsock_send(inpipe, "ss", "LOADFAIL", filename);
+        }
+        else {
+            ret = zsock_send(inpipe, "ss", "LOADOK", filename);
+        }
         free (filename);
     }
     else {
@@ -137,6 +143,9 @@ int handle_inpipe (zloop_t *loop, zsock_t *inpipe, void *dloaderobj)
 
     return ret;
 }
+void no_free (void *data, void *hint) {
+}
+
 int handle_outpipe (zloop_t *loop, zsock_t *outpipe, void *dloaderobj)
 {
     // got some input on outpipe
@@ -169,19 +178,20 @@ int handle_send(zloop_t* loop, int timer_id, void* dloaderobj)
             dloader_stop(self); // no mo data, yo
             return 0;
         }
-        
         zmsg_t* msg = zmsg_new();
         {
             zframe_t* frame = zframe_new(&self.data_sent, sizeof(int));
             zmsg_append(msg, &frame);
         }
-        {                       // zero'ish copy 
+        {
             const size_t nrunbytes = self.data_run * sizeof(short int);
+            // zero'ish copy 
             zframe_t* frame = zframe_new(NULL, nrunbytes);
-            memcpy(zframe_data(frame), self.data_ptr, nrunbytes);
+            //memcpy(zframe_data(frame), self.data_ptr, nrunbytes);
             zmsg_append(msg, &frame);
         }
         rc = zmsg_send(&msg, self.outpipe);
+
         if (rc < 0) {
             zsys_error("failed to send number %d", self.data_sent, NULL);
             break;
@@ -211,13 +221,20 @@ int dloader_start(dloader_obj_t& self, int delay, int nruns)
 int dloader_stop(dloader_obj_t& self)
 {
     // fixme: what if we have any outstanding users of this data
-    int rc = munmap((void*)self.data, self.data_nbytes);
-    assert(rc == 0);
+    int rc=0;
+    if (self.data) {
+#if USE_MMAP
+        rc = munmap((void*)self.data, self.data_nbytes);
+        assert(rc == 0);
+#else
+        free((void*)self.data);
+#endif
+    }
     self.data_nbytes = 0;
     self.data = NULL;
     self.data_ptr = nullptr;
     self.data_end=nullptr;
-    self.data_nbytes;    
+    self.data_nbytes = 0;    
     self.data_offset = 0;
     self.data_stride = 0;
     self.data_run = 0; 
@@ -235,6 +252,7 @@ int dloader_pause(dloader_obj_t& self)
     if (self.paused) {
         return 0;
     }
+    return 0;
 }
 
 int dloader_load(dloader_obj_t& self, const char* filename, int offset, int stride, int run)
@@ -250,12 +268,22 @@ int dloader_load(dloader_obj_t& self, const char* filename, int offset, int stri
     }
     struct stat st;
     stat(filename, &st);
+#if USE_MMAP
     void* vdata = mmap(NULL, st.st_size,
                      PROT_READ, MAP_PRIVATE|MAP_POPULATE, fd, 0);
     close(fd);                  // mmap stays available
     if (vdata == MAP_FAILED) {
         return -1;
     }
+#else
+    void* vdata = malloc(st.st_size);
+    int rc = read(fd, vdata, st.st_size);
+    if (rc < 0) {
+        return -1;
+    }
+    close(fd);
+#endif
+        
     self.data = (short int*) vdata;
     self.data_nbytes = st.st_size;
     self.data_ptr = self.data + offset;
