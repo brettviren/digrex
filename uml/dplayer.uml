@@ -1,5 +1,5 @@
 @startuml
-[*] -> Dloader
+[*] --> Dloader
 
 state Dloader {
 [*] -> Idle

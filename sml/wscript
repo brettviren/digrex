@@ -13,7 +13,7 @@ def configure(cfg):
                   args=['--cflags', '--libs'], use='ZMQ')
 #    cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
 #                  args=['--cflags', '--libs'])
-    cfg.env.CXXFLAGS += ['-O2', '-std=c++14']
+    cfg.env.CXXFLAGS += ['-O2', '-std=c++17']
 
 
 

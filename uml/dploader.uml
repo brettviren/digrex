@@ -1,0 +1,6 @@
+@startuml
+[*] --> Dloader
+Dloader --> ReadPipe : evPIPE;
+ReadPipe --> DoingCmd1 : evCMD1;
+ReadPipe --> DoingCmd2 : evCMD2;
+@enduml

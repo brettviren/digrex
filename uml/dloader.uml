@@ -1,0 +1,9 @@
+@startuml
+[*] --> Init
+Init --> Idle
+Idle --> HandleInput : evInput / queue_cmd
+HandleInput --> Terminate : evTerm
+HandleInput --> SendPort : evPort
+HandleInput --> LoadData : evLoad
+HandleInput --> StartSend : evStart [ have_data ]
+@enduml

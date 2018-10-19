@@ -13,3 +13,5 @@ cut
 install
 venv
 .curve
+*.png
+*.svg
