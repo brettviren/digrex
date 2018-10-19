@@ -1,0 +1,21 @@
+@startuml
+[*] -> Dloader
+
+state Dloader {
+[*] -> Idle
+Idle --> HandlePipe : evPIPE
+}
+
+state HandlePipe {
+[*] --> RecvMessage
+RecvMessage : Pop first frame
+RecvMessage --> CmdTerm : evTERM
+RecvMessage --> CmdBind : evBIND
+RecvMessage --> CmdPort : evPORT
+
+state RecvMessage {
+
+}
+}
+
+@enduml
