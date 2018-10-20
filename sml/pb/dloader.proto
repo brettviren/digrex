@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package dexnet.dloader;
+
+// request port
+message AskPort {
+
+}
+
+// Return port number
+message Port {
+    uint32 port = 1;
+}
+
+// Load a file for streaming
+message Load {
+    // filename with data
+    string filename = 1;
+    // offset into data to begin
+    uint32 offset = 2;
+    // how far to move ahead each new chunk
+    uint32 stride = 3;
+    // chunk size
+    uint32 chunk = 4;
+}
+
+// start streaming
+message Start {
+    // delay between sending out messages
+    uint32 delay = 1;
+    // number of chunks per output message
+    uint32 nchunks = 2;
+}
+
+// terminate
+//message Term {
+//}

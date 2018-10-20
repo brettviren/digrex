@@ -6,6 +6,7 @@ def options(opt):
 def configure(cfg):
     cfg.load('compiler_c compiler_cxx')
     cfg.load('boost', tooldir='waftools')
+    cfg.load('protoc_cxx','waftools')
 
     cfg.check_cfg(package='libzmq', uselib_store='ZMQ',
                   args=['--cflags', '--libs'])
@@ -21,13 +22,20 @@ def build(bld):
 
     rpath = [bld.env["PREFIX"] + '/lib'] + bld.env['LIBPATH_ZMQ']
 
+    pbs = bld.path.ant_glob("pb/*.proto")
+    pb_headers = list()
+    for pb in pbs:
+        bname = 'pb/' + pb.name.replace('.proto','.pb')
+        pb_headers.append(bld.path.find_or_declare(bname+'.h'))
+
     src = bld.path.ant_glob("src/*.cc")
     apps = bld.path.ant_glob("apps/*.cc")
     tests = bld.path.ant_glob("test/*.cc")
 
     bld.shlib(features='c cxx', includes='inc include',
-              source=src, target='dplayer', use='CZMQ')
-    
+              source=pbs+src, target='dplayer', use='CZMQ')
+    bld.install_files('${PREFIX}/include/dplayer', pb_headers)
+
     for app in apps:
         bld.program(source=[app],
                     target = app.change_ext(''),
@@ -38,6 +46,6 @@ def build(bld):
     for tst in tests:           # fixme: turn into unit tests
         bld.program(source=[tst],
                     target = tst.change_ext(''),
-                    includes = 'inc',
+                    includes = 'inc .',
                     rpath = rpath,
                     use = 'dplayer CZMQ')
