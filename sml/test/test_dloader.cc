@@ -29,9 +29,9 @@ namespace sml = boost::sml;
 //
 
 namespace MsgId {
-enum DloaderMsgId {
-    unknown, askport, port, load, start
-};
+    enum DloaderMsgId {
+        unknown, askport, port, load, start
+    };
 }
 
 namespace dexnet {
@@ -77,6 +77,7 @@ MsgId::DloaderMsgId msg_type(zmsg_t* msg)
 }
 
 
+
 //
 // Context
 //
@@ -99,32 +100,28 @@ struct DloaderContext {
         : in(inpipe), out(outpipe) {}
 };
 
-//
-// FSM logger
-// 
-
 struct Logger {
     template <class SM, class TEvent>
-        void log_process_event(const TEvent& ev) {
+    void log_process_event(const TEvent& ev) {
         zsys_debug("[%s][process_event] %s",
                    tname(SM{}), tname(ev));
     }
 
     template <class SM, class TGuard, class TEvent>
-        void log_guard(const TGuard& g, const TEvent& ev, bool result) {
+    void log_guard(const TGuard& g, const TEvent& ev, bool result) {
         zsys_debug("[%s][guard] %s %s %s",
                    tname(SM{}), tname(g), tname(ev),
                    (result ? "[OK]" : "[Reject]"));
     }
 
     template <class SM, class TAction, class TEvent>
-        void log_action(const TAction& a, const TEvent& ev) {
+    void log_action(const TAction& a, const TEvent& ev) {
         zsys_debug("[%s][action] %s %s",
                    tname(SM{}), tname(a), tname(ev));
     }
 
     template <class SM, class TSrcState, class TDstState>
-        void log_state_change(const TSrcState& src, const TDstState& dst) {
+    void log_state_change(const TSrcState& src, const TDstState& dst) {
         zsys_debug("[%s][transition] %s -> %s",
                    tname(SM{}), src.c_str(), dst.c_str());
     }
@@ -239,6 +236,7 @@ const auto load_data = [](DloaderContext& ctx, const auto& evin) {
     return;
 };
 
+
 const auto start_send = [](DloaderContext& ctx, const auto& evin) {
     zsys_info("starting to send data");
 };
@@ -246,33 +244,27 @@ const auto no_send = [](DloaderContext& ctx, const auto& evin) {
     zsys_info("start ignored");
 };
 
+
+
 // guards
 auto have_data = [](DloaderContext& ctx) {
     if (ctx.data.array == nullptr) { return false; }
     return true;                                     
 };
-auto no_data = [](DloaderContext& ctx) {
-    return !have_data(ctx);
-};
-// struct have_data {
-//     bool operator()(DloaderContext& ctx) {
-//         if (ctx.data.array == nullptr) { return false; }
-//         return true;                                     
-//     }
-// };
 
 
 struct DloaderMachine {
     auto operator()() const noexcept {
-        return sml::make_transition_table (
-            * sml::state<Init> = sml::state<Idle>
-            , sml::state<Idle> + sml::event<evInput> / queue_cmd = sml::state<HandleInput>
-            , sml::state<HandleInput> + sml::event<evTerm> = sml::state<Terminate>
-            , sml::state<HandleInput> + sml::event<evAskPort> / send_port = sml::state<Idle>
-            , sml::state<HandleInput> + sml::event<evLoad> / load_data = sml::state<Idle>
-            , sml::state<HandleInput> + sml::event<evStart> [ have_data ] / start_send  = sml::state<Idle>
-            , sml::state<HandleInput> + sml::event<evStart> [ no_data ] / no_send = sml::state<Idle>
-            , sml::state<StartSend> = sml::state<Idle>
+        using namespace sml;
+        return make_transition_table (
+            * state<Init> = state<Idle>
+            , state<Idle> + event<evInput> / queue_cmd = state<HandleInput>
+            , state<HandleInput> + event<evTerm> = state<Terminate>
+            , state<HandleInput> + event<evAskPort> / send_port = state<Idle>
+            , state<HandleInput> + event<evLoad> / load_data = state<Idle>
+            , state<HandleInput> + event<evStart> [ have_data ] / start_send  = state<Idle>
+            , state<HandleInput> + event<evStart> [ !have_data ] / no_send = state<Idle>
+            , state<StartSend> = state<Idle>
             );
     }
 };
@@ -287,12 +279,13 @@ void dloader(zsock_t* pipe, void* vargs)
     DloaderContext ctx(pipe, out);
     ctx.port = port;
 
-    Logger log;
-
     zsock_signal(pipe, 0);
 
     zpoller_t* poller = zpoller_new(pipe, NULL);
     
+    //sml::sm<DloaderMachine> dm{ctx};
+    Logger log;
+
     sml::sm<DloaderMachine, sml::logger<Logger> > dm{log, ctx};
 
     while (true) {

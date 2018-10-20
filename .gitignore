@@ -15,3 +15,4 @@ venv
 .curve
 *.png
 *.svg
+*.dat
