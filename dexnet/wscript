@@ -44,6 +44,6 @@ def build(bld):
     for tst in tests:           # fixme: turn into unit tests
         bld.program(source=[tst],
                     target = tst.change_ext(''),
-                    includes = 'inc',
+                    includes = 'inc .',
                     rpath = [bld.env["PREFIX"] + '/lib'],
                     use = 'dexnet CZMQ')

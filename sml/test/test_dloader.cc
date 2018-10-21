@@ -40,24 +40,28 @@ namespace dexnet {
     }
 }
 
-template<typename ProtoBuftype>
-zframe_t* make_frame(const ProtoBuftype& obj)
+zframe_t* make_frame(const ::google::protobuf::Message& msg)
 {
-    zframe_t* frame = zframe_new(NULL, obj.ByteSize());
-    obj.SerializeToArray(zframe_data(frame), zframe_size(frame));
+    zframe_t* frame = zframe_new(NULL, msg.ByteSize());
+    msg.SerializeToArray(zframe_data(frame), zframe_size(frame));
     return frame;
 }
-template<typename ProtoBuftype>
-void read_frame(zframe_t* frame, ProtoBuftype& obj)
+
+// template<typename ProtoBuftype>
+// zframe_t* make_frame(const ProtoBuftype& obj)
+// {
+//     zframe_t* frame = zframe_new(NULL, obj.ByteSize());
+//     obj.SerializeToArray(zframe_data(frame), zframe_size(frame));
+//     return frame;
+// }
+void read_frame(zframe_t* frame, ::google::protobuf::Message& obj)
 {
     obj.ParseFromArray(zframe_data(frame), zframe_size(frame));
 }
 
-template<typename ProtoBuftype>
-int send_message(zsock_t* sock, const ProtoBuftype& obj)
+int send_message(zsock_t* sock, const ::google::protobuf::Message& obj)
 {
-    dexnet::dloader::msgtypes which = obj;
-    int id = which.index();
+    int id = 1+obj.GetDescriptor()->index();
     zmsg_t* msg = zmsg_new();
     zmsg_addmem(msg, &id, sizeof(int));
     zframe_t* frame = make_frame(obj);

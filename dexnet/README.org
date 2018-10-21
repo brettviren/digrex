@@ -1,30 +1,24 @@
-* 
++#title: DexNet
 
-A prototypical actor node has a control pipe an inbox and an outbox
-each connecting with a node.  Each connection implies the type of
-messages it carries.
+Much more needs to be written here.
 
-- control pipe
-  - to actor:
-    - connection and disconnection cmds
-  - from actor
-    - connection and disconnection acks
+* Developer guidance
 
-* 
+1) Pick a name your component, here ~component~.
+2) add a protocol file to ~pb/component.proto~ for the component's control protocol.
+3) add a new or understand an existing protocol file for the external IPC
+4) add a ~inc/dexnet/component.h~ declaring an ~action~ function and ~config~ struct.
+5) add a ~src/component.cc~ implementation file
+6) add a ~test/test_component.cc~ to test the component
 
-** Toy TP source 
+Implementation file has the following parts:
 
-What does it do?
- - connect to one source of tick info
- - accept a stream of ticks
- - generate fake TPs given some mean rate representing some detector chunk
- - collect TPs over some configured tick period into one message
- - publish stream of TP messages on a port
- - receive configuration changes on authenticated port (mean ticks per TP, tick to start)
- - broadcast identity and port numbers
+- context :: a ~struct~ or ~class~ to provide the context data for the component.
+- events :: some ~struct~, usually empty, for any FSM events that are needed beyond protobuf messages types.
+- states :: some ~struct~ , usually empty, to represent atomic states in the FSM
+- actions :: lambdas which may take context and event or event, FSM, dep, sub (fixme: should not need to carry through the dep+sub)
+- guards :: lambda returning bool.
+- fsm :: a callable ~struct~ returning the transition table
+- actor :: the actor (~zactor~) function.  This is the only thing exported from the implementation.
 
-states:
 
-- start :: inbox/outbox sockets of predetermined type are created but no connect/bind
-  - ~(BIND|CONNECT) box~ 
-    - ~do_link()~

@@ -1,0 +1,47 @@
+syntax = "proto3";
+package dexnet.dloader;
+
+// Ask Dloader what port its buisness socket is bound to.
+message AskPort {
+    
+}
+
+// An answer from AskPort.
+message Port {
+    
+    // the port on which Dloader is bound
+    uint32 port = 1;
+    
+}
+
+// Load a file for serving
+message Load {
+    
+    // name of file to load
+    string filename = 1;
+    
+    // where in the data to start
+    uint32 offset = 2;
+    
+    // how far to advance after each chunk
+    uint32 stride = 3;
+    
+    // size of contigous data to read
+    uint32 chunk = 4;
+    
+}
+
+// Start serving
+message Start {
+    
+    // milliseconds to wait between sending out chunks
+    uint32 delay = 1;
+    
+    // number of chunks to send out at once
+    uint32 nchunks = 2;
+    
+}
+
+// Terminate dloader
+message Term {
+}
