@@ -203,6 +203,7 @@ const auto no_send = [](Context& ctx, const auto& evin) {
 
 
 const auto load_data = [](Context& ctx, const auto& evin) {
+    auto tbeg = zclock_usecs();
     auto fname = evin.filename().c_str();
     int fd = open(fname, O_RDONLY, 0);
     if (fd < 0) {
@@ -234,8 +235,9 @@ const auto load_data = [](Context& ctx, const auto& evin) {
 
     size_t nstrides = (ctx.data.end - ctx.data.offset)/ctx.data.stride;
 
-    zsys_info("dloader: load \"%s\" bytes=%jd offset=%jd stride=%jd chunk=%jd end=%jd, nstrides=%jd",
-              fname, ctx.data.bytes, ctx.data.offset,
+    auto tend = zclock_usecs();
+    zsys_info("dloader: load \"%s\" in %.fs bytes=%jd offset=%jd stride=%jd chunk=%jd end=%jd, nstrides=%jd",
+              fname, 1e-6*(tend-tbeg), ctx.data.bytes, ctx.data.offset,
               ctx.data.stride, ctx.data.chunk,
               ctx.data.end, nstrides);
 
