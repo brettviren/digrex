@@ -1,3 +1,5 @@
+// -*- c++-mode -*- //
+
 syntax = "proto3";
 package dexnet.dloader;
 
@@ -41,6 +43,15 @@ message Start {
     uint32 nchunks = 2;
     
 }
+
+// Data array used up
+message Exhausted {
+
+    // Number of nchunk-blocks sent
+    uint32 sent = 1;
+    
+}
+
 
 // Terminate dloader
 message Term {

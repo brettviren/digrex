@@ -13,8 +13,11 @@ def configure(cfg):
                   args=['--cflags', '--libs'])
     cfg.check_cfg(package='libczmq', uselib_store='CZMQ',
                   args=['--cflags', '--libs'], use='ZMQ')
-#    cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
-#                  args=['--cflags', '--libs'])
+    #cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
+    #              args=['--cflags', '--libs'])
+    cfg.env.CXXFLAGS += ['-O2', '-std=c++17']
+
+    print cfg.env
 
 
 def build(bld):
@@ -29,21 +32,25 @@ def build(bld):
     apps = bld.path.ant_glob("apps/*.cc")
     tests = bld.path.ant_glob("test/*.cc")
 
+    rpath = bld.env["LIBPATH_CZMQ"] + bld.env["LIBPATH_PROTOBUF"]
+    rpath += [bld.env["PREFIX"] + '/lib']
+
     #bld(features='c cxx', source=pbs)
     bld.shlib(features='c cxx', includes='inc include',
-              source=pbs+src, target='dexnet')
+              rpath = rpath,
+              source=pbs+src, target='dexnet', use='CZMQ')
     bld.install_files('${PREFIX}/include/dexnet', pb_headers)
     
     for app in apps:
         bld.program(source=[app],
                     target = app.change_ext(''),
                     includes = 'inc',
-                    rpath = [bld.env["PREFIX"] + '/lib'],
+                    rpath = rpath,
                     use = 'dexnet CZMQ')
 
     for tst in tests:           # fixme: turn into unit tests
         bld.program(source=[tst],
                     target = tst.change_ext(''),
                     includes = 'inc .',
-                    rpath = [bld.env["PREFIX"] + '/lib'],
+                    rpath = rpath,
                     use = 'dexnet CZMQ')

@@ -50,8 +50,8 @@ namespace dexnet {
         // Make a frame filled with the protobuf.  Caller takes ownership.
         zframe_t* make_frame(const ::google::protobuf::Message& pb) {
             size_t siz = pb.ByteSize();
-            zsys_debug("make frame id %d (%s) [%d]",
-                       msg_id(pb), msg_name(pb).c_str(), pb.ByteSize());
+            //zsys_debug("make frame id %d (%s) [%d]",
+            //           msg_id(pb), msg_name(pb).c_str(), pb.ByteSize());
             if (siz > 0) {
                 zframe_t* frame = zframe_new(NULL, pb.ByteSize());
                 pb.SerializeToArray(zframe_data(frame), zframe_size(frame));
@@ -71,7 +71,7 @@ namespace dexnet {
         zmsg_t* make_msg(const ::google::protobuf::Message& pb) {
             zmsg_t* msg = zmsg_new();
             int id = msg_id(pb);
-            zsys_debug("make message id %d (%s)", id, msg_name(pb).c_str());
+            //zsys_debug("make message id %d (%s)", id, msg_name(pb).c_str());
             zframe_t* fid = make_id_frame(id);
             zmsg_append(msg, &fid);
             zframe_t* frame = make_frame(pb);
@@ -84,7 +84,7 @@ namespace dexnet {
         int send_msg(const ::google::protobuf::Message& pb, zsock_t* sock) {
             zmsg_t* msg = make_msg(pb);
             assert(msg);
-            zsys_debug("sending msg id %d (%s)", msg_id(pb), msg_name(pb).c_str());
+            //zsys_debug("sending msg id %d (%s)", msg_id(pb), msg_name(pb).c_str());
             return zmsg_send(&msg, sock);
         }
 
