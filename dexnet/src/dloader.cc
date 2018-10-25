@@ -236,7 +236,7 @@ const auto load_data = [](Context& ctx, const auto& evin) {
     size_t nstrides = (ctx.data.end - ctx.data.offset)/ctx.data.stride;
 
     auto tend = zclock_usecs();
-    zsys_info("dloader: load \"%s\" in %.fs bytes=%jd offset=%jd stride=%jd chunk=%jd end=%jd, nstrides=%jd",
+    zsys_info("dloader: load \"%s\" in %fs bytes=%jd offset=%jd stride=%jd chunk=%jd end=%jd, nstrides=%jd",
               fname, 1e-6*(tend-tbeg), ctx.data.bytes, ctx.data.offset,
               ctx.data.stride, ctx.data.chunk,
               ctx.data.end, nstrides);
