@@ -36,12 +36,14 @@ message Load {
 // Start serving
 message Start {
     
-    // milliseconds to wait between sending out chunks
+    // Number of milliseconds to wait between sending out chunks.
     uint32 delay = 1;
     
-    // number of chunks to send out at once
+    // Number of chunks to send out at once.
     uint32 nchunks = 2;
     
+    // Maximum number of sends.  Zero means run until end of data.  O.w. data will be looped.
+    uint32 nsends = 3;
 }
 
 // Data array used up

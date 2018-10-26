@@ -20,6 +20,7 @@ struct BlockData {
 
     // for controlling streaming of the data
     unsigned int nchunks{0};
+    size_t nsends;              // number to send
     unsigned int nsent{0};
 
     // stats
@@ -146,6 +147,7 @@ int handle_timer(zloop_t *loop, int timer_id, void *varg)
 
     // fixme: this is a bug if stride < chunk.
     if (ctx.data.offset + ctx.data.nchunks*ctx.data.stride > ctx.data.end) { // would be short read
+
         zsys_info("dloader: stream end after sending %d in %f s", ctx.data.nsent, 1e-6*(zclock_usecs() - ctx.data.tbeg));
         zloop_timer_end(ctx.loop, ctx.timer_id);
         ctx.timer_id = -1;
@@ -188,6 +190,7 @@ const auto start_send = [](Context& ctx, const auto& evin) {
 
     int delay = evin.delay();
     ctx.data.nchunks = evin.nchunks();
+    ctx.data.nsends = evin.nsends();
 
     size_t nsends = (ctx.data.end - ctx.data.offset)/(ctx.data.stride*ctx.data.nchunks);
 

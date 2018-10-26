@@ -76,6 +76,7 @@ int main()
     dd::Start start;
     start.set_delay(1);
     start.set_nchunks(nchunks);
+    start.set_nsends(0);
     rc = dh::send_msg(start, pipe);
     assert(rc == 0);
 

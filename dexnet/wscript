@@ -8,7 +8,8 @@ def configure(cfg):
     cfg.load('compiler_c compiler_cxx')
     cfg.load('protoc_cxx','waftools')
     cfg.load('boost', tooldir='waftools')
-
+    cfg.check_cfg(package='eigen3', uselib_store='EIGEN',
+                  args=['--cflags', '--libs'])
     cfg.check_cfg(package='libzmq', uselib_store='ZMQ',
                   args=['--cflags', '--libs'])
     cfg.check_cfg(package='libczmq', uselib_store='CZMQ',
@@ -53,4 +54,4 @@ def build(bld):
                     target = tst.change_ext(''),
                     includes = 'inc .',
                     rpath = rpath,
-                    use = 'dexnet CZMQ')
+                    use = 'dexnet CZMQ EIGEN')
