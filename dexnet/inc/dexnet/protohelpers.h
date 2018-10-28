@@ -15,6 +15,7 @@ namespace dexnet {
             return 1 + ProtobufType::descriptor()->index() ;
         }
 
+        inline
         int msg_id(const ::google::protobuf::Message& pb) {
             return 1 + pb.GetDescriptor()->index();
         }
@@ -23,11 +24,13 @@ namespace dexnet {
         const std::string& msg_name() {
             return ProtobufType::descriptor()->name();
         }
+        inline
         const std::string& msg_name(const ::google::protobuf::Message& pb) {
             return pb.GetDescriptor()->name();
         }
 
         // return the ID assuming the frame is an ID frame.  Ownerships is not taken.
+        inline
         int msg_id(zframe_t* frame) {
             return *(int*)zframe_data(frame);
         }
@@ -35,6 +38,7 @@ namespace dexnet {
         // The message ID is also stored as the first frame of the zmsg_t.
         // This sets the "cursor" to the first frame so the message must
         // be mutable but no other changes are done to the msg.
+        inline
         int msg_id(zmsg_t* msg) {
             zframe_t* one = zmsg_first(msg);
             return *(int*)zframe_data(one);
@@ -43,11 +47,13 @@ namespace dexnet {
         // When CZMQ sends "$TERM" as first frame it's first 4 chars
         // get cast to this number.  This function is probably not
         // portable....
+        inline
         bool msg_term(int id) {
             return id == 0x52455424;
         }
 
         // Make a frame filled with the protobuf.  Caller takes ownership.
+        inline
         zframe_t* make_frame(const ::google::protobuf::Message& pb) {
             size_t siz = pb.ByteSize();
             //zsys_debug("make frame id %d (%s) [%d]",
@@ -59,7 +65,7 @@ namespace dexnet {
             }
             return zframe_new(NULL, 0);
         }
-
+        inline
         zframe_t* make_id_frame(int id) {
             zframe_t* fid = zframe_new(&id, sizeof(int));
             assert(fid);
@@ -68,6 +74,7 @@ namespace dexnet {
 
         // Make a message with first frame holding ID and second holding
         // protobuf.  Caller takes ownership.
+        inline
         zmsg_t* make_msg(const ::google::protobuf::Message& pb) {
             zmsg_t* msg = zmsg_new();
             int id = msg_id(pb);
@@ -81,6 +88,7 @@ namespace dexnet {
             return msg;
         }
 
+        inline
         int send_msg(const ::google::protobuf::Message& pb, zsock_t* sock) {
             zmsg_t* msg = make_msg(pb);
             assert(msg);
@@ -88,6 +96,7 @@ namespace dexnet {
             return zmsg_send(&msg, sock);
         }
 
+        inline
         void read_frame(zframe_t* frame, ::google::protobuf::Message& obj) {
             obj.ParseFromArray(zframe_data(frame), zframe_size(frame));
         }

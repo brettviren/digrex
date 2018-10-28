@@ -91,7 +91,8 @@ const auto send_port = [](Context& ctx, const auto& evin) {
 template<typename Message, typename SM, typename Dep, typename Sub>
 void dispatch_frame(zframe_t* frame, SM& sm, Dep& dep, Sub& sub)
 {
-    zsys_debug("dloader: dispatch frame id %d (%s)", dh::msg_id<Message>(), dh::msg_name<Message>().c_str());
+    zsys_debug("dloader: dispatch frame id %d (%s)",
+               dh::msg_id<Message>(), dh::msg_name<Message>().c_str());
     Message ev;
     dh::read_frame(frame, ev);
     zframe_destroy(&frame);
@@ -103,9 +104,12 @@ const auto queue_cmd = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
     assert(msg);                // fixme: do FSM based error handling or something
     zframe_t* fid = zmsg_pop(msg);
     auto id = dh::msg_id(fid);
-    if (dh::msg_term(id)) {
+
+    if (dh::msg_term(id)) {     // special, out-of-protocol CZMQ msg
         zsys_debug("dloader: queue terminate");
         dispatch_frame<dd::Term>(fid, sm, dep, sub);
+        zframe_destroy(&fid);
+        zmsg_destroy(&msg);
         return;
     }
 
@@ -135,10 +139,11 @@ const auto queue_cmd = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
 };
 
 const auto back_pressure = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
-    
+    zsys_warning("got unexpected message back from stream");
+    assert(false);
 };
 
-int handle_timer(zloop_t *loop, int timer_id, void *varg)
+static int handle_timer(zloop_t *loop, int timer_id, void *varg)
 {
     // fixme: this handler operates outside the jurisdiction of the
     // FSM.
@@ -148,7 +153,8 @@ int handle_timer(zloop_t *loop, int timer_id, void *varg)
     // fixme: this is a bug if stride < chunk.
     if (ctx.data.offset + ctx.data.nchunks*ctx.data.stride > ctx.data.end) { // would be short read
 
-        zsys_info("dloader: stream end after sending %d in %f s", ctx.data.nsent, 1e-6*(zclock_usecs() - ctx.data.tbeg));
+        zsys_info("dloader: stream end after sending %d in %f s",
+                  ctx.data.nsent, 1e-6*(zclock_usecs() - ctx.data.tbeg));
         zloop_timer_end(ctx.loop, ctx.timer_id);
         ctx.timer_id = -1;
 
@@ -287,7 +293,7 @@ struct CtxFsm {
     CtxFsm(Context& ctx, TopSM& fsm) : ctx(ctx), fsm(fsm) {}
 };
 
-int handle_pipe (zloop_t *loop, zsock_t *pipe, void *vobj)
+static int handle_pipe (zloop_t *loop, zsock_t *pipe, void *vobj)
 {
     CtxFsm& both = *(CtxFsm*)vobj;
     //zsys_debug("got pipe");
@@ -300,7 +306,7 @@ int handle_pipe (zloop_t *loop, zsock_t *pipe, void *vobj)
     return 0;
 }
 
-int handle_stream (zloop_t *loop, zsock_t *stream, void *vobj)
+static int handle_stream (zloop_t *loop, zsock_t *stream, void *vobj)
 {
     CtxFsm& both = *(CtxFsm*)vobj;
     zsys_debug("dloader: got stream");

@@ -42,10 +42,17 @@ int main()
     auto okay = bss.excerpt(10, 10, 20, 20);
     assert(okay.size());
 
-    auto tbeg = zclock_usecs();
-    const size_t group = 240;
+    auto tload = zclock_usecs();
+    const size_t chunk = 240;
     const size_t nchunks = 2000;
-    for (size_t send = 
+    for (size_t isend = 0; isend < bss.nrows/nchunks; ++isend) {
+        for (size_t ichunk = 0; ichunk < bss.ncols/chunk; ++ichunk) {
+            auto vp = bss.excerpt(ichunk*chunk, isend*nchunks, chunk,nchunks);
+            assert(vp.size() == nchunks);
+        }
+    }
+    auto tend = zclock_usecs();
+    zsys_info("spin through in %fs", 1.0e-6*(tend-tload));
 
     munmap(data.second, data.first);
 

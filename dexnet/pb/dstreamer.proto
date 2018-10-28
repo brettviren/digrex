@@ -1,20 +1,8 @@
 // -*- c++ -*- //
 
 syntax = "proto3";
-package dexnet.dloader;
+package dexnet.dstreamer;
 
-// Ask Dloader what port its buisness socket is bound to.
-message AskPort {
-    
-}
-
-// An answer from AskPort.
-message Port {
-    
-    // the port on which Dloader is bound
-    uint32 port = 1;
-    
-}
 
 // Load a file for serving
 message Load {
@@ -22,14 +10,11 @@ message Load {
     // name of file to load
     string filename = 1;
     
-    // where in the data to start
+    // where in the data to start (measured in sample size)
     uint32 offset = 2;
     
-    // how far to advance after each chunk
+    // the column-major stride (measured in sample size)
     uint32 stride = 3;
-    
-    // size of contigous data to read
-    uint32 chunk = 4;
     
 }
 
@@ -39,7 +24,7 @@ message Start {
     // Number of milliseconds to wait between sending out chunks.
     uint32 delay = 1;
     
-    // Number of chunks to send out at once.
+    // Number of chunks to send out at once to a stream.
     uint32 nchunks = 2;
     
     // Maximum number of sends.  Zero means run until end of data.  O.w. data will be looped.
