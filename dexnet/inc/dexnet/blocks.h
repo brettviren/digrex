@@ -7,6 +7,26 @@ namespace dexnet {
     namespace blocks {
 
         template<typename Sample>
+        struct SampleStreams {
+            typedef Sample sample_t;
+            sample_t* array{};
+            size_t ncols{};
+            size_t nrows{};
+            typedef std::vector<sample_t*> excerpt_t;
+
+            excerpt_t excerpt(size_t col, size_t row, size_t width, size_t height) {
+                if (col >= ncols or col + width > ncols) { return excerpt_t(); }
+                if (row >= nrows or row + height > nrows) { return excerpt_t(); }
+                excerpt_t ret(height, nullptr);
+                for (size_t ind=0; ind != height; ++ind) {
+                    const size_t irow = row + ind;
+                    ret[ind] = array + col + irow*ncols;
+                }
+                return ret;
+            }
+        };    
+
+        template<typename Sample>
         struct BlockStreams {
             typedef Sample sample_t;
 

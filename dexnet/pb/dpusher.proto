@@ -1,0 +1,28 @@
+// -*- c++ -*- //
+
+syntax = "proto3";
+package dexnet.dpusher;
+
+// Ask Dloader what port its buisness socket is bound to.
+message AskPort {
+    
+}
+
+// An answer from AskPort.
+message Port {
+    
+    // the port on which Dloader is bound
+    uint32 port = 1;
+    
+}
+
+// Connect to src
+message Connect {
+    
+    // name of endtpoint to connect
+    string endpoint = 1;
+    
+    // how many output ribbons
+    uint32 nsplit = 2;
+
+}

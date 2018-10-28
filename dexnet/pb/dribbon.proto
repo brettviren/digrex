@@ -1,0 +1,29 @@
+// -*- c++ -*- //
+
+syntax = "proto3";
+package dexnet.dribbon;
+
+// Metadata about a slice of a ribbon.  The slice data block itself
+// will be in the subsequent frame.
+message Slice {
+    // A sequence counter of this slice in the ribbon
+    uint32 sequence = 1;
+    
+    // The channels this slice spans.  It's length is the stride of
+    // the slice data block in the subsequent frame.
+    repeated uint32 span = 2;
+
+    // The duration of the slice in sample ticks 
+    uint32 nticks = 3;
+
+    // An additional number of ticks past nticks may be provided and
+    // if so their data will be included at the end of the slice data
+    // block in the subsequent frame.  They will also be included at
+    // the start of the subsequently sent slice from this same ribbon.
+    uint32 overlap = 4;
+
+    // If this slice is a subset of a larger ribbon then the index
+    // provides ordering between slices of common sequence number.  If
+    // no such larger context exists the index may be set to -1.
+    int32 index = 5;
+}

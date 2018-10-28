@@ -22,3 +22,132 @@ Implementation file has the following parts:
 - actor :: the actor (~zactor~) function.  This is the only thing exported from the implementation.
 
 
+
+* Narrative 
+
+** Waveform ribbon of data
+
+The conceptual data structure of waveforms taken here is that of length of ribbon.  A /ribbon/ is defined as a data stream of waveform samples in *channel-major order*.  A ribbon is said to /span/ an ordered list of channels.  The number of channels spanned is the /stride/ of the ribbon.  The waveform corresponding to a channel is a /strand/ that is, a ribbon of a single channel.  Conceptually a ribbon is of infinite length but of course in practice, it is only as long as it is buffered.  The length of a ribbon is the span of time of waveform information measured in sample /ticks/.  A ribbon is considered atomic in tick.  That is, at any given moment if a tick is present in the ribbon so are all samples across its span.  To say a "tick of the ribbon" or a "range of a ribbon" is to imply the span as well.
+
+One data ribbon may transformed into another.  Transforms include:
+
+- transfer :: send a copy of a range of the ribbon to another buffer.
+- stream :: continuously and contiguously transfer a ribbon.
+- select :: form a new ribbon from a subset strands of the original.
+- split :: select such that the resulting ribbons together span exactly all original strands.
+- join :: form a new ribbon from two or more other possibly with some channel order.
+- order :: (or reorder) split and join to achieve some different channel order
+- slice :: produce a fixed length (time) segment of a ribbon across its span.
+
+Conceptually ribbons enter and exit transforms identified with points in hardware, firmware and software.  At each point the input and output ribbons can be categorized by their span (again a span is an ordered list of channels).  Some examples, listed in order of transforms
+
+ - there are 10 ribbons of data fed into current generation of FELIX, each spans two FEMBs and the channel order is the shuffle implemented by the ASIC and FEMB channel/wire map.
+ - these 10 are converted into 2 inside FELIX and transferred to two ring buffers in PC RAM [fn:felixnow]
+ - FELIX or software reorders so that ribbons are per plane and in order of wires on APA faces
+ - ribbons are split so that their strides (and associated data rates) match compute units which examine their data for activity (trigger primitive/candidate processing)
+
+[fn:felixnow] I'm fuzzy on details here.
+
+** Ribbon Graph
+
+It is clear that ribbon streams connected by ribbon transforms form a directed graph.  A directed graph is typically defined in terms of just /edges/ (ribbon streams) and /nodes/ (ribbon transforms).  A ribbon graph extends this to identify /ports/ as a labeled point on a node to which an edge connects.  
+
+This package ~dexnet~ provides software to implement nodes, edges and ports that make up a ribbon graph.  The foundation of the ~dexnet~ library and applications is the [[http://czmq.zeromq.org/][CZMQ]] library which itself rests on the ZeroMQ (ZMQ) library.  The data model for ribbon streams is in part based on [[https://developers.google.com/protocol-buffers/][protocol buffers]] (protobuf).
+
+The remaining subsections describe how the concepts of /port/, /edge/ and /node/ and /data/ are mapped to CZMQ and protobuf.
+
+*** Ports
+
+In ~dexnet~ a port is identified with a type of ZeroMQ socket.  The choice determines a low-level behavior or protocol for data sent to or from the port as well as the type of port that may connect to it via an edge.  ZeroMQ provides a small, well behaved zoo of available socket types.  The ~man~ page ~zmq_socket(3)~ has a comprehensive summary of their specifics and its detail won't be repeated here.  Rather, a select set of socket types and how they are used for ~dexnet~ ports is given:
+
+- PAIR :: used for coherent streams between exactly two nodes.  See [[./test_dstreamer][streamer test]]. [fn:pipe]
+
+- PUSH/PULL :: used for asynchronous scatter gather pattern to spread processing out.  The scatter aspect does not keep ribbon coherency as any given slice may not be be processed serially by the same node.   See [[./test/test_dpushpull.cc][push/pull test]].
+
+- ROUTER :: not yet used.  Can be used for synchronous scatter/gather.
+
+[fn:pipe] PAIR is also used for actor pipes, see [[Nodes]].
+
+*** Edges
+
+An edge represents transfer of information between two ports.  This is decomposed into three layers of representation: message protocol, schema and transport:
+
+- protocol :: the expected conversation in terms of a series of message types
+- schema :: the format and structure of information for each message type
+- transport :: the underlying ZeroMQ data transport mechanism.  
+Currently (fixme), the protocol is effectively defined by the implementing nodes of the two endpoints and at best documented.  More formal methods to define and generate protocol are being investigated.
+
+The message schema is defined in terms of two orthogonal representations: ZeroMQ frames (~zframe_t~) and protobuf objects.  A ZeroMQ message (~zmsg_t~) is composed of a series of frames and is sent and received atomically from the point of a node.  For the most part, a frame is simply a block of data in to which application-specific structure is placed.  The high level message schema for ~dexnet~ is defined in the scope of one edge protocol and has following frames:
+
+1) an integer message type identifier unique to the protocol
+2) structured data following a schema specific to the message type.
+3) zero or more additional frames as determined by message type.
+If a message type has no structured data then frame 2 is empty, but must still exist.  If the endpoint ports require it a field 0 may exist to hold the ZeroMQ routing id.
+
+Of the available ZeroMQ message transport, ~dexnet~ considers only the three most commonly used:
+
+  - ~inproc://~ for thread safe queues
+  - ~ipc://~ local inter-process (eg, Unix named pipes) and
+  - ~tcp://~ across TCP/IP networks.  
+
+
+Some message types and concepts to describe
+
+- slices/chunks
+- overlap
+- pointer vs copy
+- ribbon coherency
+
+*** Nodes
+
+In ~dexnet~, a /node/ of the graph is implemented in terms of a ZMQ /actor/ (~zactor_t~ type).  An actor is a C function running in its own thread and with one PAIR socket connected to another PAIR socket held by the creator of the actor.  This PAIR-PAIR connection is termed the /actor pipe/ or just /pipe/ and is used to pass messages for control and monitoring of the actor.  This pipe communication is out-of-band[fn:looper] from that of the ribbon graph but it still obeys a message protocol and schema while the transport is fixed to ~inproc://~.
+
+[fn:looper] Technically, most actors execute but a single thread and must process messages from the pipe in the same context as they do messages from their ribbon graph ports.  This means that excessive messages from or ignored messages to the actor's creator (``patron''?) can lead to congestion in the ribbon graph.  As in the real arts, patrons must give actors enough freedom of expression if they are to perform well.
+
+The node actor is typically implemented to execute through a small number of phases:
+- initialization :: create and, if applicable, bind any port sockets
+- running :: respond to input from pipe or ports (typically via ~zloop_t~ or ~zpoller_t~) and/or otherwise emit output.
+- shutdown :: prompted by user interrupt or pipe command, gracefully disconnect, free buffers and otherwise cease operation.
+In general, connecting to peers should not be done during initialization as there ~dexnet~ explicitly makes no guarantees or assumptions about the state of peers.  Instead, peer connections should be initiated from commands sent by the ``patron'' through the actor pipe.
+
+** Other graphs and applications
+
+A ribbon graph, as described above, is limited to the flow of waveform data.  Other, very similar graphs will be described including:
+
+- waveform graph :: as described here
+- trigger graph :: exchange of discrete trigger candidate and trigger command messages
+- presence and discovery graph :: exchange of identity and heartbeat information
+- configuration graph :: distribution of configuration information 
+- monitoring graph :: collection of status information
+- data egress graph :: building events and saving them to file.
+These graphs can be described in much the same way except that they may use different implementation technology.  Even if they happen to be based on ZeroMQ and protobuf as is waveform graph (eg, trigger graph is expected to be so based) they do not share the same edge types.  That is, one may not connect a port defined in one graph type to a port defined in another.  
+
+However, these graphs are connected indirectly through /proxy/ or /gateway/ which aggregate nodes from each supported graph into a relatively tightly coupled unit.  In fact, as described so far, a ribbon graph node is not even executable if it is merely defined as a ZeroMQ actor.  It must have a supporting executable program application (app).
+
+Thus an app provides a main thread which provides the functions:
+
+- creating nodes defined in one or more graph types
+- interface with each node's actor protocol
+- providing initial configuration to nodes
+- providing human user interface
+
+* State machines
+
+Explicit hierarchical finite state machines (FSM[fn:fsm]) are used for:
+- actor control and graph protocol message processing
+- app actor servicing 
+
+[fn:fsm] Not flying spaghetti monster.
+
+
+* 
+
+ nper split
+|--------+--------+--------+--------|
+| split0 | split1 | split2 | split3 |
+|--------+--------+--------+--------|
+| tick   |        |        |        |
+| tick   |        |        |        |
+| tick   |        |        |        |
+|--------+--------+--------+--------|
+

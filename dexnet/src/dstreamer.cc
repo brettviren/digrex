@@ -4,6 +4,7 @@
 
 #include "dexnet/dstreamer.h"
 #include "dexnet/protohelpers.h"
+#include "dexnet/blocks.h"
 #include "pb/dstreamer.pb.h"
 
 #include <boost/sml.hpp>
@@ -24,26 +25,7 @@ namespace dh = dexnet::helpers;
 typedef std::vector<zsock_t*> socket_vector_t;
 typedef std::pair<size_t, void*> vdata_t;
 
-template<typename Sample>
-struct SampleStreams {
-    typedef Sample sample_t;
-    sample_t* array{};
-    size_t ncols{};
-    size_t nrows{};
-    typedef std::vector<sample_t*> excerpt_t;
-
-    excerpt_t excerpt(size_t col, size_t row, size_t width, size_t height) {
-        if (col >= ncols or col + width > ncols) { return excerpt_t(); }
-        if (row >= nrows or row + height > nrows) { return excerpt_t(); }
-        excerpt_t ret(height, nullptr);
-        for (size_t ind=0; ind != height; ++ind) {
-            const size_t irow = row + ind;
-            ret[ind] = array + col + irow*ncols;
-        }
-        return ret;
-    }
-};    
-typedef SampleStreams<ds::sample_t> BSS;
+typedef dexnet::blocks::SampleStreams<ds::sample_t> BSS;
 
 struct Sender {
     socket_vector_t socks{};
@@ -186,8 +168,12 @@ const auto queue_cmd = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
     return;
 };
 
-const auto back_pressure = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
+const auto _back_pressure = [](const auto& evin, auto& sm, auto& dep, auto& sub) {
 };
+
+void back_pressure() {
+}
+
 
 static int handle_timer(zloop_t *loop, int timer_id, void *varg)
 {
@@ -266,7 +252,7 @@ struct FSM {
         return make_transition_table (
             * state<Init> = state<Idle>
             , state<Idle> + event<evPipe> / queue_cmd = state<Input>
-            , state<Idle> + event<evStream> / back_pressure = state<Input>
+            , state<Idle> + event<evStream> / []{back_pressure();} = state<Input>
             , state<Input> + event<ds::Term> / shut_down = state<Terminate>
             , state<Input> + event<ds::Load> / load_data = state<Idle>
             , state<Input> + event<ds::Start> [ ready_data ] / start_send  = state<Idle>
