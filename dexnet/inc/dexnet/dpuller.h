@@ -12,7 +12,7 @@ namespace dexnet {
         typedef uint16_t sample_t;
 
         struct config {
-            const char* endpoint; // PULL endpoint
+            // nada
         };
 
         void actor(zsock_t* pipe, void* vargs);

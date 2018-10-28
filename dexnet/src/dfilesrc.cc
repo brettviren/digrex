@@ -55,16 +55,18 @@ static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
     dr::Slice slice;
     slice.set_sequence(ctx.nsent);
     for (int ind=0; ind<ctx.stride; ++ind) {
-        slice.set_span(ind, ind);
+        slice.add_span(ind);
     }
+    zsys_debug("filesrc: slice spans: %d", slice.span_size());
     slice.set_nticks(ctx.nstrides);
     slice.set_overlap(0);
     slice.set_index(-1);
 
     zmsg_t* msg = dh::make_msg(slice);
-    const size_t bsiz = ctx.nstrides*ctx.stride;
+    const size_t nsamples = ctx.nstrides*ctx.stride;
+    const size_t bsiz = nsamples*sizeof(df::sample_t);
     zframe_t* fblock = zframe_new(NULL, bsiz);
-    memcpy(zframe_data(fblock), ctx.data + ctx.bcursor*bsiz, bsiz);
+    memcpy(zframe_data(fblock), ctx.data + ctx.bcursor*nsamples, bsiz);
     zmsg_append(msg, &fblock);
 
     int rc = zmsg_send(&msg, ctx.dst);
@@ -97,15 +99,15 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
     }
     else if (id == dh::msg_id<df::Load>()) {
         if (ctx.timer_id < 0) {
-            zsys_warning("aready started loaded");
-        }
-        else {
             zframe_t* frame = zmsg_pop(msg);
             df::Load lobj;
             dh::read_frame(frame, lobj);
             zframe_destroy(&frame);
             int fd = open(lobj.filename().c_str(), O_RDONLY, 0);
-            assert (fd == 0);
+            if (fd < 0) {
+                zsys_error("failed with %d to open %s", fd, lobj.filename().c_str());
+                assert(fd >= 0);
+            }
             struct stat st;
             int rc = fstat(fd, &st);
             assert (rc == 0);
@@ -125,6 +127,9 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
             ctx.nsends = lobj.nsends();
             ctx.nsent = 0;
             ctx.timer_id = zloop_timer(ctx.loop, lobj.delay(), 0, handle_timer, &ctx);
+        }
+        else {
+            zsys_warning("file already loaded");
         }
     }
     else {

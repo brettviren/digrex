@@ -11,7 +11,7 @@ message Slice {
     
     // The channels this slice spans.  It's length is the stride of
     // the slice data block in the subsequent frame.
-    repeated uint32 span = 2;
+    repeated uint32 span = 2 [packed=true];
 
     // The duration of the slice in sample ticks 
     uint32 nticks = 3;

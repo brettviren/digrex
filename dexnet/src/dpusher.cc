@@ -56,8 +56,9 @@ static int send_data(Context& ctx, dr::Slice& slice, void* vdata, size_t vsize)
 {
     const size_t stride = slice.span_size();
     const size_t nticks = slice.nticks();
-    if (vsize != stride*nticks*sizeof(dp::sample_t)) {
-        zsys_warning("corrupted data");
+    const size_t expect = stride*nticks*sizeof(dp::sample_t);
+    if (vsize != expect) {
+        zsys_warning("corrupted data: vsize=%jd, expect=%jd", vsize, expect);
         return 0;
     }
 
@@ -83,7 +84,7 @@ static int send_data(Context& ctx, dr::Slice& slice, void* vdata, size_t vsize)
         slout.set_sequence(ctx.nsent);
         slout.set_index(isplit);
         for (size_t ich = 0; ich < nper; ++ich) {
-            slout.set_span(ich, ich + isplit*nper);
+            slout.add_span(ich + isplit*nper);
         }
         slout.set_nticks(nticks);
         slout.set_overlap(0);

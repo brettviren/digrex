@@ -1,0 +1,13 @@
+// -*- c++ -*- //
+
+syntax = "proto3";
+package dexnet.dpuller;
+
+
+// Connect to src
+message Connect {
+    
+    // name of endtpoint to connect
+    string endpoint = 1;
+    
+}
