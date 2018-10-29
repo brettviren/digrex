@@ -1,0 +1,76 @@
+digraph actor {
+        point0[shape=point];
+        point1[shape=point];
+        point2[shape=point];
+        point3[shape=point];
+
+        filesrc[shape=circle,width=1.2];
+        
+        pusher[shape=circle,width=1.2];
+        push[shape=point];
+        
+        puller0[shape=circle,width=1.2];
+        puller1[shape=circle,width=1.2];
+
+        {rank=same; point0,filesrc}
+        {rank=same; point1,pusher}
+        {rank=same; point2,puller0}
+        {rank=same; point3,puller1}
+
+
+        point0->filesrc[
+                      arrowhead=odot,
+                      headlabel=<<font color="blue">PAIR</font>>;
+                      label=<<font color="red">control</font>>
+                      ];
+
+        point1->pusher[
+                      arrowhead=odot,
+                      headlabel=<<font color="blue">PAIR</font>>;
+                      label=<<font color="red">control</font>>
+                      ];
+
+        point2->puller0[
+                       arrowhead=odot,
+                       headlabel=<<font color="blue">PAIR</font>>;
+                       label=<<font color="red">control</font>>
+                       ];
+        point3->puller1[
+                        arrowhead=odot,
+                        headlabel=<<font color="blue">PAIR</font>>;
+                        label=<<font color="red">control</font>>
+                        ];
+        filesrc->pusher[
+                        dir=both,
+                        arrowhead=odot,
+                        arrowtail=dot,
+                        taillabel=<<font color="blue">PAIR</font>>;
+                        headlabel=<<font color="blue">PAIR</font>>;
+                        label=<<font color="red">ribbon</font>>
+                        ];
+
+
+        pusher->push[
+                        dir=both,
+                        arrowhead=none,
+                        arrowtail=dot,
+                        label=<<font color="red">ribbon</font>>
+                        taillabel=<<font color="blue">PULL</font>>;
+                        headlabel=<<font color="black">RR</font>>;
+                        ];
+        push->puller0[
+                        dir=both,
+                        arrowhead=odot,
+                        arrowtail=none,
+                        headlabel=<<font color="blue">PUSH</font>>;
+                        ];
+        
+
+        push->puller1[
+                        dir=both,
+                        arrowhead=odot,
+                        arrowtail=none,
+                        headlabel=<<font color="blue">PUSH</font>>;
+                        ];
+
+}
