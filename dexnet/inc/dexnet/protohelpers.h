@@ -29,10 +29,16 @@ namespace dexnet {
             return pb.GetDescriptor()->name();
         }
 
-        // return the ID assuming the frame is an ID frame.  Ownerships is not taken.
+        // Return the ID assuming the frame is an ID frame. ID=-1 means
+        // $TERM. Ownership is not taken.
         inline
         int msg_id(zframe_t* frame) {
-            return *(int*)zframe_data(frame);
+            if (zframe_streq(frame, "$TERM")) {
+                return 0;
+            }
+            int id = *(int*)zframe_data(frame);
+            assert(id > 0);
+            return id;
         }
 
         // The message ID is also stored as the first frame of the zmsg_t.
@@ -41,7 +47,7 @@ namespace dexnet {
         inline
         int msg_id(zmsg_t* msg) {
             zframe_t* one = zmsg_first(msg);
-            return *(int*)zframe_data(one);
+            return msg_id(one);
         }
 
         // When CZMQ sends "$TERM" as first frame it's first 4 chars
@@ -50,6 +56,11 @@ namespace dexnet {
         inline
         bool msg_term(int id) {
             return id == 0x52455424;
+        }
+        inline
+        bool msg_term(zmsg_t* msg) {
+            zframe_t* one = zmsg_first(msg);
+            return zframe_streq(one, "$TERM");
         }
 
         // Make a frame filled with the protobuf.  Caller takes ownership.

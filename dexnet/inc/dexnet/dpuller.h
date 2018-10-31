@@ -12,7 +12,7 @@ namespace dexnet {
         typedef uint16_t sample_t;
 
         struct config {
-            // nada
+            int id;             // positive ID number
         };
 
         void actor(zsock_t* pipe, void* vargs);

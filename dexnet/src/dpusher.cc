@@ -29,6 +29,11 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
     zmsg_t* msg = zmsg_recv(sock);
     zframe_t* fid = zmsg_pop(msg);
     int id = dh::msg_id(fid);
+    if (!id ) {
+        zsys_debug("dpusher: got $TERM after pushed %d in %d splits", ctx.nsent, ctx.nsplit);
+        return -1;
+    }
+
     if (id == dh::msg_id<dp::AskPort>()) {
         dp::Port p; p.set_port(ctx.port);
         zmsg_t* ret = dh::make_msg(p);
@@ -45,7 +50,7 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
         ctx.nsplit = c.nsplit();
     }
     else {
-        zsys_warning("unknown message ID on pipe: %d", id);
+        zsys_warning("dpusher: unknown message ID on pipe: %d", id);
     }
     zframe_destroy(&fid);
     zmsg_destroy(&msg);
@@ -155,6 +160,8 @@ void dp::actor(zsock_t* pipe, void* vargs)
     ctx.port = zsock_bind(ctx.dst, cfg->endpoint, NULL);
 
     zsock_signal(pipe, 0);      // ready
+    zsys_debug("dpusher: ready");
+
 
     int rc = 0;
     rc = zloop_reader(ctx.loop, ctx.pipe, handle_pipe, &ctx);

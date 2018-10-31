@@ -25,6 +25,7 @@ struct Context {
     size_t stride{0}, nstrides{0}, nsends{0}, nblocks{0};
     size_t nsent{0};            // count sent
     size_t bcursor{0};          // send cursor, loops [0, nblocks)
+    size_t ncycles{0};
 };
 
 static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
@@ -32,16 +33,32 @@ static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
     Context& ctx = *(Context*)vobj;
 
     bool done = false;
+    bool exhausted = false;
 
     if (ctx.bcursor >= ctx.nblocks) { // at end of data
+        zsys_debug("dfilesrc: reaches EOF");
+
         if (ctx.nsends == 0) {    // user wants to loop to end of data
             done = true;
         }
+        exhausted = true;
         ctx.bcursor = 0;
     }
 
     if (ctx.nsent >= ctx.nsends) {       // reached end of requested number of sends
+        zsys_debug("dfilesrc: reaches nsends=%d", ctx.nsends);
+        exhausted = true;
         done = true;
+    }
+
+    if (exhausted) {
+        ++ctx.ncycles;
+        df::Exhausted ex;
+        ex.set_sequence(ctx.ncycles);
+        ex.set_sent(ctx.nsent);
+        ex.set_finished(done);
+        dh::send_msg(ex, ctx.pipe);
+        zsys_debug("dfilesrc: exhausted");
     }
 
     if (done) {
@@ -57,7 +74,7 @@ static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
     for (int ind=0; ind<ctx.stride; ++ind) {
         slice.add_span(ind);
     }
-    zsys_debug("filesrc: slice spans: %d", slice.span_size());
+    //zsys_debug("filesrc: slice spans: %d", slice.span_size());
     slice.set_nticks(ctx.nstrides);
     slice.set_overlap(0);
     slice.set_index(-1);
@@ -89,8 +106,16 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
     Context& ctx = *(Context*)vobj;
 
     zmsg_t* msg = zmsg_recv(sock);
+    bool term = dh::msg_term(msg);
     zframe_t* fid = zmsg_pop(msg);
     int id = dh::msg_id(fid);
+    if (!id) {
+        zsys_debug("dfilesrc: got $TERM after %d sends", ctx.nsends);
+        assert(term);
+        return -1;
+    }
+
+
     if (id == dh::msg_id<df::AskPort>()) {
         df::Port p; p.set_port(ctx.port);
         zmsg_t* ret = dh::make_msg(p);
@@ -105,7 +130,7 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
             zframe_destroy(&frame);
             int fd = open(lobj.filename().c_str(), O_RDONLY, 0);
             if (fd < 0) {
-                zsys_error("failed with %d to open %s", fd, lobj.filename().c_str());
+                zsys_error("dfilesrc: failed with %d to open %s", fd, lobj.filename().c_str());
                 assert(fd >= 0);
             }
             struct stat st;
@@ -129,11 +154,11 @@ static int handle_pipe(zloop_t */*loop*/, zsock_t *sock, void *vobj)
             ctx.timer_id = zloop_timer(ctx.loop, lobj.delay(), 0, handle_timer, &ctx);
         }
         else {
-            zsys_warning("file already loaded");
+            zsys_warning("dfilesrc: file already loaded");
         }
     }
     else {
-        zsys_warning("unknown message ID on pipe: %d", id);
+        zsys_warning("dfilesrc: unknown message ID on pipe: 0x%x", id);
     }
     zframe_destroy(&fid);
     zmsg_destroy(&msg);
@@ -154,6 +179,7 @@ void df::actor(zsock_t* pipe, void* vargs)
     ctx.loop = zloop_new();
 
     zsock_signal(pipe, 0);      // ready
+    zsys_debug("dfilesrc: ready");
 
     int rc = 0;
     rc = zloop_reader(ctx.loop, ctx.pipe, handle_pipe, &ctx);
