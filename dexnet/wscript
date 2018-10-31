@@ -8,6 +8,9 @@ def configure(cfg):
     cfg.load('compiler_c compiler_cxx')
     cfg.load('protoc_cxx','waftools')
     cfg.load('boost', tooldir='waftools')
+    cfg.check(header_name="dlfcn.h", uselib_store='DYNAMO',
+              lib=['dl'], mandatory=True)
+
     #cfg.check_cfg(package='eigen3', uselib_store='EIGEN',
     #              args=['--cflags', '--libs'])
     cfg.check_cfg(package='libzmq', uselib_store='ZMQ',
@@ -19,7 +22,7 @@ def configure(cfg):
     cfg.env.CXXFLAGS += ['-O2', '-std=c++17']
     #cfg.env.CXXFLAGS += ['-g', '-std=c++17']
 
-    print cfg.env
+    #print cfg.env
 
 
 def build(bld):
@@ -37,22 +40,26 @@ def build(bld):
     rpath = bld.env["LIBPATH_CZMQ"] + bld.env["LIBPATH_PROTOBUF"]
     rpath += [bld.env["PREFIX"] + '/lib']
 
+    uses = 'CZMQ DYNAMO'.split()
+
     #bld(features='c cxx', source=pbs)
     bld.shlib(features='c cxx', includes='inc include',
               rpath = rpath,
-              source=pbs+src, target='dexnet', use='CZMQ')
+              source=pbs+src, target='dexnet', use=uses)
     bld.install_files('${PREFIX}/include/dexnet', pb_headers)
     
+    uses = ['dexnet'] + uses
+
     for app in apps:
         bld.program(source=[app],
                     target = app.change_ext(''),
                     includes = 'inc',
                     rpath = rpath,
-                    use = 'dexnet CZMQ')
+                    use = uses)
 
     for tst in tests:           # fixme: turn into unit tests
         bld.program(source=[tst],
                     target = tst.change_ext(''),
                     includes = 'inc .',
                     rpath = rpath,
-                    use = 'dexnet CZMQ')
+                    use = uses)
