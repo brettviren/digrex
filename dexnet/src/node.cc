@@ -65,17 +65,15 @@ void dn::Node::initialize(const std::string& json_text)
             port = m_ports.make(portname, socktype);
         }
         assert (port);
-        std::string ep;
-        for (ep : jp["bind"]) {
+        for (auto ep : jp["bind"]) {
             int rc = port->bind(ep);
             assert(rc >= 0);    // port number is returned in a bind.
         }
-        for (ep : jp["connect"]) {
+        for (auto ep : jp["connect"]) {
             int rc = port->connect(ep);
             assert(rc == 0);
         }
-        std::string protoname;
-        for (protoname : jp["protocols"]) {
+        for (auto protoname : jp["protocols"]) {
             addproto(protoname, portname);
         }
     }
