@@ -144,11 +144,23 @@ Explicit hierarchical finite state machines (FSM[fn:fsm]) are used for:
 
 To abstract commonalities there is a singular ~Node~ class which dynamically assembles itself via configuration and a  plugin class factory.  A ~Node~ consists of
 
-- a collection of "ports", each which associate a name, numerical ID and a ~zsock_t*~
-- a pipeline of message processors associated with each port and called for each message
+- a collection of "ports", each which associate a name, numerical ID, a ~zsock_t~ and a "current" ~zmsg_t~
+- a pipeline of protocol objects (message processors) associated with each port and called for each message
 - a payload object which is called for each message.
 
 This construction is instead of an FSM.
+
+** Port
+
+One of the things a port aggregates is the "current" message.  The message is handled differently for sending and receiving.  For receiving:
+
+- ~recv()~ gets the message from the socket, returns it and holds on to it.
+- ~msg()~ returns the current message. this can be used by a protocol which is passed the port.
+
+For sending:
+
+- ~msg()~ returns the current message, creating it if needed.  protocols may use this to get the message for constructing.
+- ~send()~ sends the current message, which also clears it.
 
 ** Protocol
 

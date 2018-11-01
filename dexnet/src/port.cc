@@ -52,6 +52,33 @@ int dn::Port::handle(dn::Node* node)
     return 1;                   // not handled.
 }
 
+zmsg_t* dn::Port::recv()
+{
+    if (m_msg) {
+        zmsg_destroy(&m_msg);
+    }
+    m_msg = zmsg_recv(m_sock);
+    return m_msg;
+}
+
+int dn::Port::send()
+{
+    if (!m_msg) {
+        return -1;
+    }
+    return zmsg_send(&m_msg, m_sock); // clears msg
+}
+
+zmsg_t* dn::Port::msg()
+{
+    if (!m_msg) {
+        m_msg = zmsg_new();
+    }
+    return m_msg;
+}
+
+
+
 
 dn::PortSet::PortSet()
 {
@@ -127,3 +154,4 @@ dn::PortSet::pids_t dn::PortSet::pids()
     std::iota(ret.begin(), ret.end(), 0);
     return ret;
 }
+

@@ -53,11 +53,24 @@ namespace dexnet {
             const std::string& name() { return m_name; }
             zsock_t* sock() { return m_sock; }
 
+            
+
+            // Receive a new message on the port and return it or
+            // nullptr.  The message is always owned by the port.
+            zmsg_t* recv();
+
+            // Send the prepared message return rc.
+            int send();
+
+            // Get current message.  Message remains owned by the port.
+            zmsg_t* msg();
+
         private:
 
             portid_t m_id;
             std::string m_name;
             zsock_t* m_sock;
+            zmsg_t* m_msg;
             bool m_socket_owned; // don't delete socket if true
 
 

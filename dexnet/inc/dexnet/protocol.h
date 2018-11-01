@@ -28,9 +28,9 @@ namespace dexnet {
             // Return -1 on error, 0 on handled, 1 on no error but not handled.
             //
             // Subclass will likely:
-            // 1) recv message
-            // 2) "retype" message into a typed FSM event struct.
-            // 3) process event through FSM 
+            // 1) "retype" message into a typed FSM event struct.
+            // 2) call process event through FSM
+            // 
             virtual int handle(Node* node, Port* pd) = 0;
         };
         

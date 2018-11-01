@@ -86,12 +86,15 @@ void dn::Node::initialize(const std::string& json_text)
 int dn::Node::input(zsock_t* sock)
 {
     auto port = m_ports.find(sock);
-    if (port) {
-        int rch = port->handle(this);
-        if (rch <= 0) {
-            return rch;
-        }
+    assert(port);
+
+    port->recv();
+
+    int rch = port->handle(this);
+    if (rch <= 0) {             // error or handled
+        return rch;
     }
+
     return m_payload->handle(this, port);
 }
 
