@@ -1,6 +1,6 @@
-+#title: DexNet
+#+title: DexNet
 
-Much more needs to be written here.
+Much more and much less needs to be written here.
 
 * Developer guidance
 
@@ -140,14 +140,22 @@ Explicit hierarchical finite state machines (FSM[fn:fsm]) are used for:
 [fn:fsm] Not flying spaghetti monster.
 
 
-* 
+* Nodes
 
- nper split
-|--------+--------+--------+--------|
-| split0 | split1 | split2 | split3 |
-|--------+--------+--------+--------|
-| tick   |        |        |        |
-| tick   |        |        |        |
-| tick   |        |        |        |
-|--------+--------+--------+--------|
+To abstract commonalities there is a singular ~Node~ class which dynamically assembles itself via configuration and a  plugin class factory.  A ~Node~ consists of
+
+- a collection of "ports", each which associate a name, numerical ID and a ~zsock_t*~
+- a pipeline of message processors associated with each port and called for each message
+- a payload object which is called for each message.
+
+This construction is instead of an FSM.
+
+** Protocol
+
+A protocol is a set of related message types.  Each message type is identified by an integer unique within the protocol.  An instance of a message type follows an associated data schema.  All ~dexnet~ message schema are compliant with ~zmsg_t~.  The first frame of every message holds an identifier object specifying the
+
+- protocol identifier
+- message type identifier
+
+The schema of any subsequent frames depend on the contents of the first frame.  Any frames, including the first, which has structured data is formatted through protocol buffers.  Frames which hold large amounts of uniformly formatted data (eg, waveform data) or where overhead of protocol buffers is unacceptable may be formatted in another manner.
 
