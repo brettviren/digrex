@@ -19,12 +19,17 @@ namespace dexnet {
             ~Node();
             void run();
 
-            const std::string& name() { return m_name; }
-
             int input(zsock_t* sock);
+
+            std::string name() { return m_name; }
+            PortSet& ports() { return m_ports; }
+            Protocol* payload() { return m_payload; }
+            
 
         private:
             void initialize(const std::string& json_text);
+            void shutdown();
+
             // internal: add a protocol.  If no port name then it's
             // "payload" protocol.
             void addproto(const std::string& protoname,

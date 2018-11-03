@@ -6,13 +6,21 @@
 
 #include "dexnet/protocol.h"
 
+#include <boost/sml.hpp>
+
 namespace dexnet {
     namespace node {
         namespace control {
 
+
+
+
             class Protocol : public dexnet::node::Protocol {
+
             public:
                 virtual ~Protocol();
+
+                virtual std::string name() { return "control"; }
 
                 // 0=handled, -1=error, 1=unhandled
                 virtual int handle(Node* node, Port* pd);

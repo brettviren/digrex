@@ -60,6 +60,8 @@ zmsg_t* dn::Port::recv()
         zmsg_destroy(&m_msg);
     }
     m_msg = zmsg_recv(m_sock);
+    zsys_debug("port %s recv %d/%d on 0x%x", name().c_str(),
+               zmsg_content_size(m_msg), zmsg_size(m_msg), m_sock);
     return m_msg;
 }
 
@@ -68,6 +70,8 @@ int dn::Port::send()
     if (!m_msg) {
         return -1;
     }
+    zsys_debug("port %s send %d/%d on 0x%x", name().c_str(),
+               zmsg_content_size(m_msg), zmsg_size(m_msg), m_sock);
     return zmsg_send(&m_msg, m_sock); // clears msg
 }
 
@@ -79,18 +83,12 @@ zmsg_t* dn::Port::msg()
     return m_msg;
 }
 
-zmsg_t* dn::Port::create(int pcid, int msgid)
+zmsg_t* dn::Port::create()
 {
     if (m_msg) {
         zmsg_destroy(&m_msg);
     }
     m_msg = zmsg_new();
-    if (!m_msg) return nullptr;
-    int data[2] = {pcid, msgid};
-    int rc = zmsg_addmem(m_msg, data, 2*sizeof(int));
-    if (rc != 0) {
-        zmsg_destroy(&m_msg);
-    }
     return m_msg;
 }
 

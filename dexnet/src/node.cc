@@ -1,11 +1,13 @@
 #include "dexnet/node.h"
 #include "dexnet/protocol.h"
+#include "dexnet/protohelpers.h"
 
 #include "json.hpp"
 #include <czmq.h>
 
 using json = nlohmann::json;
 namespace dn = dexnet::node;
+namespace dh = dexnet::helpers;
 
 const std::string actor_port_name = "actor";
 const std::string actor_ctrl_proto = "control";
@@ -85,11 +87,16 @@ void dn::Node::initialize(const std::string& json_text)
             port = m_ports.make(portname, socktype);
         }
         assert (port);
-        for (auto ep : jp["bind"]) {
+        for (auto jep : jp["bind"]) {
+            std::string ep = jep;
+            zsys_debug("node: bind port %s to %s",
+                       port->name().c_str(), ep.c_str());
             int rc = port->bind(ep);
             assert(rc >= 0);    // port number is returned in a bind.
         }
-        for (auto ep : jp["connect"]) {
+        for (auto jep : jp["connect"]) {
+            std::string ep = jep;
+            zsys_debug("node: connect port %s to %s", port->name().c_str(), ep.c_str());
             int rc = port->connect(ep);
             assert(rc == 0);
         }
@@ -102,6 +109,15 @@ void dn::Node::initialize(const std::string& json_text)
     
 }
 
+
+void dn::Node::shutdown()
+{
+    for (auto pid : m_ports.pids()) {
+        auto port = m_ports.get(pid);
+        assert(port);
+        zloop_reader_end(m_loop, port->sock());
+    }
+}
 
 int dn::Node::input(zsock_t* sock)
 {
@@ -121,6 +137,11 @@ int dn::Node::input(zsock_t* sock)
         zsys_error("node: failed to recv port");
         return -1;
     }
+    if (dh::msg_term(msg)) {
+        zsys_debug("node: got $TERM");
+        shutdown();
+        return -1;
+    }
 
     int rch = port->handle(this);
     if (rch <= 0) {             // error or handled
@@ -137,8 +158,9 @@ int dn::Node::input(zsock_t* sock)
 static int handle_input (zloop_t *loop, zsock_t *sock, void *vobj)
 {
     dn::Node* node = static_cast<dn::Node*>(vobj);
+    zsys_debug("handling input on 0x%x", (void*)sock);
     int rch = node->input(sock);
-    zsys_debug("handled_input: %d", rch);
+    zsys_debug("handled input: %d", rch);
     if (rch <= 0) return rch;
     return -1;                  // not handling input is an error.
 }
@@ -151,6 +173,7 @@ void dn::Node::run()
         auto port = m_ports.get(pid);
         assert(port);
         int rc = zloop_reader(m_loop, port->sock(), handle_input, this);
+        zsys_debug("node: adding port %s to loop", port->name().c_str());
         assert (rc == 0);
     }
     zloop_start(m_loop);

@@ -4,6 +4,7 @@
 #include "pb/testcontrol.pb.h"
 
 #include <string>
+#include <iostream>
 
 using json = nlohmann::json;
 
@@ -37,9 +38,21 @@ int main()
         zsys_debug("sent status");
     }
     {
-        zmsg_t* msg = zactor_recv(actor);
+        zmsg_t* msg = zmsg_recv(zactor_sock(actor));
         assert(msg);
-        
+
+        zframe_t* fhead = zmsg_first(msg);
+        assert(fhead);
+        dnc::Header header;
+        header.ParseFromArray(zframe_data(fhead), zframe_size(fhead));
+
+        std::cout << "header: " << header.pcid() << ":" << header.msgid() << std::endl;
+
+        zframe_t* frame = zmsg_next(msg);
+        assert(frame);
+        dnc::State st;
+        st.ParseFromArray(zframe_data(frame), zframe_size(frame));
+        std::cout << st.nodename() << std::endl;
     }
 
     zactor_destroy(&actor);

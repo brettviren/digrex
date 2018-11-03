@@ -66,9 +66,9 @@ namespace dexnet {
             // Get current message.  Message remains owned by the port.
             zmsg_t* msg();
 
-            // initiate the creation of a message.  Additional frames
+            // create a new message.  Additional frames
             // may be added by caller.  Port retains ownership.
-            zmsg_t* create(int pcid, int msgid);
+            zmsg_t* create();
 
         private:
 

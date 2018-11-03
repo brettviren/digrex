@@ -25,6 +25,8 @@ namespace dexnet {
         struct Protocol {
             virtual ~Protocol();
 
+            virtual std::string name() { return "base"; }
+
             // Return -1 on error, 0 on handled, 1 on no error but not handled.
             //
             // Subclass will likely:
