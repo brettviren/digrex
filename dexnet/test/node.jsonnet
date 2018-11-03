@@ -97,10 +97,11 @@ local puller = function(n) {
 local pullers = [puller(n) for n in std.range(0,3)];
 
 // jsonnet -m <dir> node.jsonnet
-{
-    // each is an application-specific format but kept as common as possible.
-    "filesrc.json": [filesrc],
-    "pusher.json": [pusher],
-    "puller.json": pullers,
-}
+// {
+//     // each is an application-specific format but kept as common as possible.
+//     "filesrc.json": [filesrc],
+//     "pusher.json": [pusher],
+//     "puller.json": pullers,
+// }
+
 

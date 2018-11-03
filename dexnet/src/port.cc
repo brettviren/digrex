@@ -21,6 +21,7 @@ int dn::Port::bind(const std::string& endpoint)
 {
     int portnum = zsock_bind(m_sock, endpoint.c_str(), NULL);
     if (portnum < 0) {
+        zsys_error("port: failed to bind to %s", endpoint.c_str());
         return portnum;
     }
     m_bound[endpoint] = portnum;
@@ -31,6 +32,7 @@ int dn::Port::connect(const std::string& endpoint)
 {
     int rc = zsock_connect(m_sock, endpoint.c_str(), NULL);
     if (rc < 0) {
+        zsys_error("port: failed to connect to %s", endpoint.c_str());
         return rc;
     }
     m_connected.insert(endpoint);
@@ -73,6 +75,21 @@ zmsg_t* dn::Port::msg()
 {
     if (!m_msg) {
         m_msg = zmsg_new();
+    }
+    return m_msg;
+}
+
+zmsg_t* dn::Port::create(int pcid, int msgid)
+{
+    if (m_msg) {
+        zmsg_destroy(&m_msg);
+    }
+    m_msg = zmsg_new();
+    if (!m_msg) return nullptr;
+    int data[2] = {pcid, msgid};
+    int rc = zmsg_addmem(m_msg, data, 2*sizeof(int));
+    if (rc != 0) {
+        zmsg_destroy(&m_msg);
     }
     return m_msg;
 }

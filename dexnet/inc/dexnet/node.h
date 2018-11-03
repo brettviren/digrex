@@ -35,7 +35,7 @@ namespace dexnet {
             PortSet m_ports;
             Protocol* m_payload;
             zloop_t* m_loop;
-            upif::cache plugins;
+            upif::cache m_plugins;
         };
 
         void actor(zsock_t* pipe, void* vargs);

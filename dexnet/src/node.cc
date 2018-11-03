@@ -8,15 +8,14 @@ using json = nlohmann::json;
 namespace dn = dexnet::node;
 
 const std::string actor_port_name = "actor";
-const std::string actor_ctrl_proto = "actor";
+const std::string actor_ctrl_proto = "control";
 
 dn::Node::Node(zsock_t* pipe, void* args)
 {
     auto port = m_ports.add(actor_port_name, pipe);
     assert(port);
-    if (args) {
-        initialize((char*)args);
-    }
+    assert(args);
+    initialize((char*)args);
 }
 dn::Node::~Node()
 {
@@ -25,16 +24,24 @@ dn::Node::~Node()
 void dn::Node::addproto(const std::string& protoname,
                         const std::string& portname)
 {
-    auto pfact = dn::protocol_factory(plugins, protoname);
+    zsys_debug("adding protocol \"%s\" to port \"%s\"",
+               protoname.c_str(), portname.c_str());
+    auto pfact = dn::protocol_factory(m_plugins, protoname);
+    if (!pfact) {
+        zsys_error("failed to get protocol: %s", protoname.c_str());
+    }
     assert(pfact);
-    // for now, always pass node name as protocol instance name.  Some
-    // point later we may want to differently configured instances of
-    // a given protocol type and then we'd use a unique instance name
-    // as determined by our initialization configuration.
+
+    // for now, always pass node name as protocol *instance* name.
+    // Some point later we may want to differently configured
+    // instances of a given protocol type and then we'd use a unique
+    // instance name as determined by our initialization
+    // configuration.
     auto proto = pfact->create(m_name);
     assert(proto);
 
     if (portname.empty()) {
+        m_payload = proto;
         return;
     }
     auto port = m_ports.find(portname);
@@ -44,15 +51,28 @@ void dn::Node::addproto(const std::string& protoname,
 
 void dn::Node::initialize(const std::string& json_text)
 {
-    // fixme: initialize upfi, maybe make it a singleton to main() does init.
+    zsys_debug("config string:\n%s", json_text.c_str());
 
     auto jcfg = json::parse(json_text);
     m_name = jcfg["name"];
 
+    // fixme: initialize upfi, maybe make it a singleton to main() does init.
+    for (auto jpin : jcfg["plugins"]) {
+        std::string pname = jpin["name"];
+        std::string plib = "";
+        if (jpin["library"].is_string()) {
+            plib = jpin["library"];
+        }
+        zsys_debug("add plugin: %s %s", pname.c_str(), plib.c_str());
+        auto pi = m_plugins.add(pname, plib);
+        assert(pi);
+    }
+
+    zsys_debug("actor proto: %s, actor port: %s", actor_port_name.c_str(), actor_port_name.c_str());
+    addproto(actor_ctrl_proto, actor_port_name);
+
     std::string type = jcfg["type"];
     addproto(type);
-
-    addproto(actor_ctrl_proto, actor_port_name);
 
     for (auto jp : jcfg["ports"]) {
         std::string portname = jp["name"];
@@ -78,24 +98,39 @@ void dn::Node::initialize(const std::string& json_text)
         }
     }
 
-    
+    assert(m_payload);
     
 }
 
 
 int dn::Node::input(zsock_t* sock)
 {
-    auto port = m_ports.find(sock);
-    assert(port);
+    if(!sock) {
+        zsys_error("Node: got null input socket");
+        return -1;
+    }
 
-    port->recv();
+    auto port = m_ports.find(sock);
+    if (!port) {
+        zsys_error("node: failed to get port for socket");
+        return -1;
+    }
+
+    auto msg = port->recv();
+    if (!msg) {
+        zsys_error("node: failed to recv port");
+        return -1;
+    }
 
     int rch = port->handle(this);
     if (rch <= 0) {             // error or handled
+        zsys_debug("node: port handled: %d", rch);
         return rch;
     }
 
-    return m_payload->handle(this, port);
+    rch = m_payload->handle(this, port);
+    zsys_debug("node: payload handled: %d", rch);
+    return rch;    
 }
 
 
@@ -103,6 +138,7 @@ static int handle_input (zloop_t *loop, zsock_t *sock, void *vobj)
 {
     dn::Node* node = static_cast<dn::Node*>(vobj);
     int rch = node->input(sock);
+    zsys_debug("handled_input: %d", rch);
     if (rch <= 0) return rch;
     return -1;                  // not handling input is an error.
 }
@@ -126,6 +162,7 @@ void dn::Node::run()
 void dn::actor(zsock_t* pipe, void* vargs)
 {
     dn::Node node(pipe, vargs);
+    zsys_debug("Node actor ready");
     zsock_signal(pipe, 0);      // ready
     node.run();
     // node destructor destroys ports which destroys sockets

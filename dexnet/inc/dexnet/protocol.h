@@ -22,9 +22,9 @@ namespace dexnet {
         // also have a "make_protocol_PROTOCOLTYPE()" extern "C"
         // function that returns a protocol_factory that makes
         // protocol instances.
-        class Protocol {
-        public:
+        struct Protocol {
             virtual ~Protocol();
+
             // Return -1 on error, 0 on handled, 1 on no error but not handled.
             //
             // Subclass will likely:
@@ -32,10 +32,20 @@ namespace dexnet {
             // 2) call process event through FSM
             // 
             virtual int handle(Node* node, Port* pd) = 0;
+
         };
         
-        class ProtocolFactory {
-        public:
+        template<typename PType>
+        struct ProtocolFactoryTyped {
+            virtual ~ProtocolFactoryTyped() {}
+            
+            virtual Protocol* create(const std::string& instance_name) {
+                return new PType;
+            }
+        };
+
+        struct ProtocolFactory {
+
             virtual ~ProtocolFactory();
             
             // Create a protocol.

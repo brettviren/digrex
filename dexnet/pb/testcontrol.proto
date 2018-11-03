@@ -1,0 +1,46 @@
+// -*- c++ -*- //
+
+// This is temporary for testing of prototype control protocol written
+// by hand instead of codegen.
+
+syntax = "proto3";
+package dexnet.node.control;
+
+message Header {
+    // say what protocol the message in the payload frame is part of
+    uint32 pcid = 1;
+
+    // say which message type within the protocol the payload is
+    uint32 msgid = 2;
+}
+
+// request a port to connect
+message Connect {
+    string portname = 1;
+    string endpoint = 2;
+}
+
+// request status returned
+message Status {
+}
+
+message PortState {
+    // the id of the port in the node
+    uint32 portid = 1;
+    // the name of the port in the node
+    string portname = 2;
+    // a map of all bound endpoints to their host port
+    map<string, uint32> bound = 3;
+    // a list of connected endpoints
+    repeated string connected = 4;
+    // a list of protocol identifier names
+    repeated string protocols = 5;
+}
+
+// response to status
+message State {
+    string nodename = 1;
+    string payload = 2;
+    repeated PortState states = 3;
+}
+

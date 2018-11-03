@@ -48,13 +48,14 @@ namespace dexnet {
             // handled.  return 1 if okay but not handled.
             int handle(Node* node);
 
-            // accessors
+            // Accessors
             portid_t id() { return m_id; }
             const std::string& name() { return m_name; }
             zsock_t* sock() { return m_sock; }
 
-            
 
+            // Message handling.
+                        
             // Receive a new message on the port and return it or
             // nullptr.  The message is always owned by the port.
             zmsg_t* recv();
@@ -64,6 +65,10 @@ namespace dexnet {
 
             // Get current message.  Message remains owned by the port.
             zmsg_t* msg();
+
+            // initiate the creation of a message.  Additional frames
+            // may be added by caller.  Port retains ownership.
+            zmsg_t* create(int pcid, int msgid);
 
         private:
 
