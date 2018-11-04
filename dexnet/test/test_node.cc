@@ -17,7 +17,7 @@ int main()
 {
    "name": "testcontrol",
    "ports": [ ],
-   "type": "control",
+   "type": "control_nodeside",
    "plugins": [ { "name": "dexnet" } ]
 }
 )"_json;

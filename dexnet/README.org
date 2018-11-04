@@ -171,3 +171,4 @@ A protocol is a set of related message types.  Each message type is identified b
 
 The schema of any subsequent frames depend on the contents of the first frame.  Any frames, including the first, which has structured data is formatted through protocol buffers.  Frames which hold large amounts of uniformly formatted data (eg, waveform data) or where overhead of protocol buffers is unacceptable may be formatted in another manner.
 
+

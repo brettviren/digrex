@@ -1,8 +1,7 @@
 #ifndef dexnet_node_h_seen
 #define dexnet_node_h_seen
 
-
-#include "dexnet/port.h"
+#include "dexnet/portset.h"
 #include "upif.h"
 
 #include <string>

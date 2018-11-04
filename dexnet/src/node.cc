@@ -10,7 +10,7 @@ namespace dn = dexnet::node;
 namespace dh = dexnet::helpers;
 
 const std::string actor_port_name = "actor";
-const std::string actor_ctrl_proto = "control";
+const std::string actor_ctrl_proto = "control_nodeside";
 
 dn::Node::Node(zsock_t* pipe, void* args)
 {
