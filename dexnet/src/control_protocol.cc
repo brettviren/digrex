@@ -17,17 +17,24 @@
 
 #include <queue>
 
+
 namespace dn = dexnet::node;
 namespace dnc = dexnet::node::control;
 namespace dh = dexnet::czmqpb;
 
+class NodeSide;
 
-struct fsm_maker {
+// all we need to manually edit are the actions
+#include "control_test.inc"
+
+
+// a FSM which processes the protocol (or some portion of it).
+struct nodeside_table {
     auto operator()() const noexcept {
         using namespace boost::sml;
         return make_transition_table (
             * "start"_s + event<evConnect> / dnc::actConnect{} = "decide"_s
-            , "start"_s + event<evStatus> / dnc::actStatus{} = "decide"_s
+            , "start"_s + event<evStatus> / actStatus = "decide"_s
             , "decide"_s + event<evOK> = X
             , "decide"_s + event<evFail> = "failed"_s
             , "decide"_s + event<evUnhandled> = "unhandled"_s
@@ -37,7 +44,13 @@ struct fsm_maker {
  
 // fixme: also need PatronSide
 class NodeSide : public dexnet::node::Protocol {
+    typedef boost::sml::sm<nodeside_table,
+                           boost::sml::process_queue<std::queue> > FSM_t;
+    FSM_t m_fsm;
+
 public:
+    NodeSide() : m_fsm{*this} {    }
+
     virtual ~NodeSide() {}
     
     virtual std::string name() { return "control"; }
@@ -68,8 +81,6 @@ public:
         const int pcid = header.pcid();
         assert(pcid == header.pcid());
 
-        sm<fsm_maker, process_queue<std::queue> > fsm{*this};
-
         // fixme: finally we upcast to C++ type by wrapping the message to
         // a typed unpacker.  These unpackers shall be defined above but
         // really must come from codegen.  This long switch also shall be
@@ -78,25 +89,24 @@ public:
         switch (msgid) {
         default: return 1; break;
 
-            // fixme: case shall use an enum defined bythe message codegen.
         case 1:
-            // fixme: evX structs shall be named, not numbered, by codegen
-            fsm.process_event(evConnect{node,pd});
+            m_fsm.process_event(evConnect{node,pd});
             break;
         case 2:
-            fsm.process_event(evStatus{node,pd});
+            m_fsm.process_event(evStatus{node,pd});
             break;
         }
     
-        if (fsm.is(X)) {
+        // and findally, convert final state to return value
+        if (m_fsm.is(X)) {
             zsys_error("dnc: FSM succeeded");
             return 0;
         }
-        if (fsm.is("failed"_s)) {
+        if (m_fsm.is("failed"_s)) {
             zsys_error("dnc: FSM failed");
             return -1;
         }
-        if (fsm.is("unhandled"_s)) {
+        if (m_fsm.is("unhandled"_s)) {
             zsys_error("dnc: FSM unhandled");
             return 1;
         }
