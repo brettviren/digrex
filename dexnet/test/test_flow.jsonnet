@@ -51,7 +51,7 @@ local actors = [
     actor(protocol("flowsplit", "flow_split"),
           [ port("in", zmq.pair) ] + [port("out%d"%n, zmq.pair) for n in std.range(0,3)])
 ] + [
-    actor(protocol("flowsink%d", "flow_sink"), [ port("in", zmq.pair) ])
+    actor(protocol("flowsink%d"%n, "flow_sink"), [ port("in", zmq.pair) ])
     for n in std.range(0,3)
     ];
 actors

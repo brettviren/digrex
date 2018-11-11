@@ -12,7 +12,27 @@ namespace dnf = dexnet::node::flow;
 namespace dh = dexnet::czmqpb;
 
 class FlowSource : public dexnet::node::Protocol {
+    dnf::Header m_head;
+    dnf::DataTime m_dtime;
+    dnf::TCSBlock m_dblock;
 public:
+    FlowSource () {
+        m_head.set_pcid(2);     // fixme: this needs to get controlled
+        // fixme: this represents concept shear!  Need to make a
+        // distinction between protocol message id and protobuf's
+        // message ID.
+        m_head.set_msgid(dh::msg_id<dnf::TCSBlock>());
+
+        m_dtime.set_epochns(0);
+
+        m_dblock.set_relstartns(0);
+        m_dblock.set_block_index_t(0);
+        m_dblock.set_block_index_ch(0);
+        m_dblock.set_noverlap_t(0);
+        m_dblock.set_noverlap_ch(0);
+        m_dblock.set_nbits(32);
+    }
+
     virtual std::string name() { return "flow_source"; }
 
     // fixme: source has no input but needs a way to provide output
@@ -20,6 +40,23 @@ public:
     virtual int handle(dn::Node* node, dn::Port* pd) {
         zsys_error("FlowSource: got input");
         return -1;
+    }
+    virtual int timer(dn::Node* node, int timer_id) {
+
+        auto last_time = m_dtime.epochns();
+        auto this_time = zclock_usecs() * 1000;
+        m_dtime.set_epochns(this_time);
+
+        m_dblock.set_durationns(last_time ? this_time-last_time : 0);
+        m_dblock.set_block_index_t(1 + m_dblock.block_index_t());
+        
+        // fixme, this name is provided by configuration, need a more static way to locate.
+        dn::Port* p = node->ports().find("out");
+        zmsg_t* msg = p->create();
+        dh::append_frame(msg, m_head);
+        dh::append_frame(msg, m_dtime);
+        dh::append_frame(msg, m_dblock);
+        return 0;
     }
 };
 class FlowSplit : public dexnet::node::Protocol {
@@ -79,6 +116,7 @@ class FlowSink : public dexnet::node::Protocol {
 public:
     virtual std::string name() { return "flow_sink"; }
     virtual int handle(dn::Node* node, dn::Port* pd) {
+        zsys_debug("FlowSink sinking");
         return 0;
     }
 
