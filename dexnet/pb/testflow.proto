@@ -1,0 +1,79 @@
+// -*- c++ -*- //
+
+// this is a (test) protocol for flow of detector data through dexnet nodes.
+
+syntax = "proto3";
+package dexnet.node.flow;
+
+// fixme: common to all dexnet protocols, should be out in its own
+// file and with pcid an enum.  control=1, flow=2, etc
+message Header {
+    // say what protocol the message in the payload frame is part of
+    uint32 pcid = 1;
+
+    // say which message type within the protocol the payload is
+    uint32 msgid = 2;
+}
+
+// This message asserts a point in "data time" which stampts the
+// absolute time at which some detector data was initially produced
+// (ie, the time at which TPC or PDS data is sampled).  It shall
+// always refer to this initial production time regardless of any
+// transformations which may be applied to the detector data.
+// Detector data shall always be acompanied with a "data time" while
+// it passes through dexnet.  
+
+message DataTime {
+    // The "data time" is marked as integral nanoseconds from the Unix
+    // epoch.  This gives about +/- 300 years of range.  DUNE might
+    // even be built before this overflows.
+    int64 epochns = 1;
+}
+
+// A time-channel-sample block describes a 2D "rectangular" portion
+// cut from a "ribbon of data".  The ribbon is conceptually infinite
+// in time and finite in cross section.  Across the ribbon is marked
+// by electronics channels in some order.  The data block identifies a
+// start and durration and a subset of channels.  It also identifies
+// it's location with respect to other blocks defined along simlar
+// lines.  When samples of data spanned by this block are given they
+// shall be provided in a subsequent frame in {sample-major,
+// channel-minor, tick} order.  Ie, N-bits per sample, across channels
+// at the same tick.  Repeat for next tick.
+message TCSBlock {
+
+    // The start time in ns of the block relative to the associated
+    // DataTime.epochns.
+    int32 relstartns = 1;
+
+    // The time duration of the block in nanoseconds and measured
+    // relative to the .relstartns start time.
+    int64 durationns = 2;
+
+    // Index this in the stream of blocks over time and at fixed channel set.
+    int32 block_index_t = 3;
+
+    // Index this stream of blocks over channel sets at a fixed time.
+    int32 block_index_ch = 4;
+
+    // The ordered list of channels identifiers for which this slice
+    // spans.  The stride of the subsequent frame holding the sample
+    // array shall be the length of this channel list.  The length of
+    // that array divided by the length of the channel list is the
+    // number of samples over time (per channel).
+    repeated uint32 channels = 5 [packed=true];
+
+    // The number of samples measured in the time dimension at the end
+    // of the array which shall be expected to be duplicated at the
+    // begining of a subsequent array with the same set of channels
+    // and an incremented block_index_t.
+    uint32 noverlap_t = 6;
+
+    // The number of channels at the end of the channel list which
+    // shall be expected to be duplicated in some other Data Block
+    // with the same block_index_t and an incremented block_index_ch.
+    uint32 noverlap_ch = 7;
+
+    // Number of bits in each sample of a subsequent array frame.
+    uint32 nbits = 8;
+}    

@@ -35,6 +35,11 @@ namespace dexnet {
             // 
             virtual int handle(Node* node, Port* pd) = 0;
 
+            // Optionally timers may be handled.
+            virtual int timer(Node* node, int timer_id) {
+                return 0;
+            }
+
         };
         
         template<typename PType>

@@ -10,7 +10,9 @@ namespace dexnet {
         namespace control {
 
             struct actConnect {
-                void operator()(const evConnect& evin, boost::sml::back::process<evOK> process_event);
+                void operator()(const evConnect& evin,
+                                boost::sml::back::process<evOK> process_event,
+                                boost::sml::back::process<evFail> process_fail);
             };
 
             struct actStatus {

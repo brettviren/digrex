@@ -1,3 +1,4 @@
+// -*- c++ -*- //
 #include "control_actions.h"
 #include "dexnet/protocol.h"
 
@@ -7,8 +8,33 @@ namespace dh = dexnet::czmqpb;
 namespace dn = dexnet::node;
 namespace dnc = dexnet::node::control;
 
-void dnc::actConnect::operator()(const evConnect& evin, boost::sml::back::process<evOK> process_event) {
+void dnc::actConnect::operator()(const evConnect& evin,
+                                 boost::sml::back::process<evOK> process_event,
+                                 boost::sml::back::process<evFail> process_fail) 
+{
     zsys_debug("connect action");
+    zmsg_t* msg = evin.port->msg();
+    
+    dnc::Connect conn;
+    int rc = dh::get_frame(msg, 1, conn);
+    if (rc < 0) {
+        zsys_error("control: failed to get frame for connect action");
+        process_fail(evFail{});
+    }
+    std::string name = conn.portname();
+    std::string ep = conn.endpoint();
+    dn::PortSet& ps = evin.node->ports();
+    dn::Port* other = ps.find(name);
+    if (!other) {
+        zsys_error("control: failed to get port %s for connect action", name.c_str());
+        process_fail(evFail{});
+    }
+    rc = other->connect(ep);
+    if (rc < 0) {
+        zsys_error("control: failed to connect \"%s\" to endpoint \"%s\"",
+                   name.c_str(), ep.c_str());
+        process_fail(evFail{});
+    }
     process_event(evOK{});
 }
 

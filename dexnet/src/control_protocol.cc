@@ -14,7 +14,6 @@
 #include <cxxabi.h>
 
 #include <boost/sml.hpp>
-
 #include <queue>
 
 
@@ -25,8 +24,8 @@ namespace dh = dexnet::czmqpb;
 class NodeSide;
 
 // all we need to manually edit are the actions
-#include "control_test.inc"
-
+//#include "control_test.inc"
+#include "control_actions.inc"
 
 // a FSM which processes the protocol (or some portion of it).
 struct nodeside_table {
@@ -34,7 +33,7 @@ struct nodeside_table {
         using namespace boost::sml;
         return make_transition_table (
             * "start"_s + event<evConnect> / dnc::actConnect{} = "decide"_s
-            , "start"_s + event<evStatus> / actStatus = "decide"_s
+            , "start"_s + event<evStatus> / dnc::actStatus{} = "decide"_s
             , "decide"_s + event<evOK> = X
             , "decide"_s + event<evFail> = "failed"_s
             , "decide"_s + event<evUnhandled> = "unhandled"_s

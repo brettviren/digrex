@@ -2,7 +2,6 @@
 #include "dexnet/protocol.h"
 #include "dexnet/protohelpers.h"
 
-#include "json.hpp"
 #include <czmq.h>
 
 using json = nlohmann::json;
@@ -12,8 +11,11 @@ namespace dh = dexnet::helpers;
 const std::string actor_port_name = "actor";
 const std::string actor_ctrl_proto = "control_nodeside";
 
+
+
 dn::Node::Node(zsock_t* pipe, void* args)
 {
+    m_loop = zloop_new();
     auto port = m_ports.add(actor_port_name, pipe);
     assert(port);
     assert(args);
@@ -22,33 +24,43 @@ dn::Node::Node(zsock_t* pipe, void* args)
 dn::Node::~Node()
 {
 }
-
-void dn::Node::addproto(const std::string& protoname,
-                        const std::string& portname)
+static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
 {
-    zsys_debug("adding protocol \"%s\" to port \"%s\"",
-               protoname.c_str(), portname.c_str());
-    auto pfact = dn::protocol_factory(m_plugins, protoname);
-    if (!pfact) {
-        zsys_error("failed to get protocol: %s", protoname.c_str());
+    dn::Node* node = (dn::Node*)vobj;
+    return node->timer(timer_id);
+}
+
+void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
+{
+    std::string pctype = jcfg["type"];
+    if (portname == "") {
+        zsys_debug("adding payload \"%s\"", pctype.c_str());
     }
+    else {
+        zsys_debug("adding protocol \"%s\" to port \"%s\"",
+                   pctype.c_str(), portname.c_str());
+    }
+    auto pfact = dn::protocol_factory(m_plugins, pctype); 
     assert(pfact);
 
-    // for now, always pass node name as protocol *instance* name.
-    // Some point later we may want to differently configured
-    // instances of a given protocol type and then we'd use a unique
-    // instance name as determined by our initialization
-    // configuration.
     auto proto = pfact->create(m_name);
     assert(proto);
 
     if (portname.empty()) {
         m_payload = proto;
-        return;
     }
-    auto port = m_ports.find(portname);
-    assert(port);
-    port->add(proto);
+    else {
+        auto port = m_ports.find(portname);
+        assert(port);
+        port->add(proto);
+    }
+
+    for (auto jtimer : jcfg["timers"]) {
+        const int delay = jtimer["delay"];
+        const int ntimes = jtimer["ntimes"];
+        int timer_id = zloop_timer(m_loop, delay, ntimes, handle_timer, this);
+        m_timers[timer_id] = proto;
+    }
 }
 
 void dn::Node::initialize(const std::string& json_text)
@@ -70,11 +82,14 @@ void dn::Node::initialize(const std::string& json_text)
         assert(pi);
     }
 
-    zsys_debug("actor proto: %s, actor port: %s", actor_port_name.c_str(), actor_port_name.c_str());
-    addproto(actor_ctrl_proto, actor_port_name);
+    
+    initialize_protocol(jcfg["payload"]);
 
-    std::string type = jcfg["type"];
-    addproto(type);
+    {                 // hard-wire the actor control protocol and port
+        json jctrl;
+        jctrl["type"] = actor_ctrl_proto;
+        initialize_protocol(jctrl, actor_port_name);
+    }
 
     for (auto jp : jcfg["ports"]) {
         std::string portname = jp["name"];
@@ -89,19 +104,20 @@ void dn::Node::initialize(const std::string& json_text)
         assert (port);
         for (auto jep : jp["bind"]) {
             std::string ep = jep;
-            zsys_debug("node: bind port %s to %s",
+            zsys_debug("node: bind port \"%s\" to \"%s\"",
                        port->name().c_str(), ep.c_str());
             int rc = port->bind(ep);
             assert(rc >= 0);    // port number is returned in a bind.
         }
         for (auto jep : jp["connect"]) {
             std::string ep = jep;
-            zsys_debug("node: connect port %s to %s", port->name().c_str(), ep.c_str());
+            zsys_debug("node: connect port \"%s\" to \"%s\"",
+                       port->name().c_str(), ep.c_str());
             int rc = port->connect(ep);
             assert(rc == 0);
         }
-        for (auto protoname : jp["protocols"]) {
-            addproto(protoname, portname);
+        for (auto jpc : jp["protocols"]) {
+            initialize_protocol(jpc, portname);
         }
     }
 
@@ -117,6 +133,17 @@ void dn::Node::shutdown()
         assert(port);
         zloop_reader_end(m_loop, port->sock());
     }
+}
+
+int dn::Node::timer(int timer_id)
+{
+    auto it = m_timers.find(timer_id);
+    if (it == m_timers.end()) {
+        zsys_warning("Node: \"%s\" unknown timer ID: %d", m_name.c_str(), timer_id);
+        return 0;
+    }
+    dn::Protocol* pc = it->second;
+    return pc->timer(this, timer_id);
 }
 
 int dn::Node::input(zsock_t* sock)
@@ -168,7 +195,6 @@ static int handle_input (zloop_t *loop, zsock_t *sock, void *vobj)
 
 void dn::Node::run()
 {
-    m_loop = zloop_new();
     for (auto pid : m_ports.pids()) {
         auto port = m_ports.get(pid);
         assert(port);
@@ -185,7 +211,7 @@ void dn::Node::run()
 void dn::actor(zsock_t* pipe, void* vargs)
 {
     dn::Node node(pipe, vargs);
-    zsys_debug("Node actor ready");
+    zsys_debug("Node actor \"%s\" ready", node.name().c_str());
     zsock_signal(pipe, 0);      // ready
     node.run();
     // node destructor destroys ports which destroys sockets

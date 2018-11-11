@@ -12,8 +12,13 @@ namespace dexnet {
 
     namespace czmqpb {
 
-        // Messages IDs are taken to be the 1-based count of the message
-        // type in the protocol.  It's 1+ the protobuf index.
+        // Messages IDs are taken to be the 1-based count of the
+        // message type in the protocol.  It's 1+ the protobuf index.
+        // Note, a protocol message is held in a ZMQ message *frame*.
+        // A ZMQ message may thus contain have zero or more protocol
+        // messages.  Fixme: this confusion represents are multiple
+        // overlapping taxonomies with degenerate terms.  should clear
+        // this up!
         template<typename ProtobufType>
         int msg_id() {
             return 1 + ProtobufType::descriptor()->index() ;

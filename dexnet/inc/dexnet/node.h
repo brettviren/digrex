@@ -3,13 +3,12 @@
 
 #include "dexnet/portset.h"
 #include "upif.h"
-
+#include "json.hpp"
 #include <string>
 
 namespace dexnet {
 
     namespace node {
-
 
         // A general node context
         class Node {
@@ -19,6 +18,7 @@ namespace dexnet {
             void run();
 
             int input(zsock_t* sock);
+            int timer(int timer_id);
 
             std::string name() { return m_name; }
             PortSet& ports() { return m_ports; }
@@ -27,19 +27,18 @@ namespace dexnet {
 
         private:
             void initialize(const std::string& json_text);
+
+            // internal: initialize a protocol.  If no port name then
+            // it's assumed to be the "payload" protocol.
+            void initialize_protocol(nlohmann::json& jcfg, const std::string& portname="");
             void shutdown();
 
-            // internal: add a protocol.  If no port name then it's
-            // "payload" protocol.
-            void addproto(const std::string& protoname,
-                          const std::string& portname="");
-
-            // fixme: might have to make this something special.
             std::string m_name;
             PortSet m_ports;
             Protocol* m_payload;
             zloop_t* m_loop;
             upif::cache m_plugins;
+            std::unordered_map<int, Protocol*> m_timers;
         };
 
         void actor(zsock_t* pipe, void* vargs);
