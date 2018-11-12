@@ -27,6 +27,12 @@ namespace dexnet {
 
             virtual std::string name() { return "base"; }
 
+            virtual void configure(Node* node,
+                                   const std::string& name,
+                                   const std::string& args) {
+                return;
+            }
+
             // Return -1 on error, 0 on handled, 1 on no error but not handled.
             //
             // Subclass will likely:
@@ -46,7 +52,8 @@ namespace dexnet {
         struct ProtocolFactoryTyped {
             virtual ~ProtocolFactoryTyped() {}
             
-            virtual Protocol* create(const std::string& instance_name) {
+            virtual Protocol* create(const std::string& /*instance_name*/) {
+                // fixme: instance name is ignored
                 return new PType;
             }
         };

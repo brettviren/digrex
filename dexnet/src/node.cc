@@ -33,6 +33,7 @@ static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
 void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
 {
     std::string pctype = jcfg["type"];
+    std::string pcname = jcfg["name"];
     if (portname == "") {
         zsys_debug("adding payload \"%s\"", pctype.c_str());
     }
@@ -43,8 +44,9 @@ void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
     auto pfact = dn::protocol_factory(m_plugins, pctype); 
     assert(pfact);
 
-    auto proto = pfact->create(m_name);
+    auto proto = pfact->create(pcname);
     assert(proto);
+    proto->configure(this, pcname, jcfg["args"].dump());
 
     if (portname.empty()) {
         m_payload = proto;

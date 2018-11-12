@@ -21,8 +21,8 @@ def configure(cfg):
                   args=['--cflags', '--libs'])
     cfg.check_cfg(package='libczmq', uselib_store='CZMQ',
                   args=['--cflags', '--libs'], use='ZMQ')
-    #cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
-    #              args=['--cflags', '--libs'])
+    cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
+                  args=['--cflags', '--libs'], use='CZMQ')
     cfg.env.CXXFLAGS += ['-std=c++17']
     cfg.env.CXXFLAGS += to_list(cfg.options.cxxflags)
     #cfg.env.CXXFLAGS += ['-g', '-std=c++17']
@@ -45,7 +45,7 @@ def build(bld):
     rpath = bld.env["LIBPATH_CZMQ"] + bld.env["LIBPATH_PROTOBUF"]
     rpath += [bld.env["PREFIX"] + '/lib']
 
-    uses = 'CZMQ DYNAMO'.split()
+    uses = 'ZYRE DYNAMO'.split()
 
     #bld(features='c cxx', source=pbs)
     bld.shlib(features='c cxx', includes='inc include',
