@@ -1,5 +1,7 @@
 #+title: In which I play with protocol buffers and zeromq
 
+The latest prototyping is in [[./dexnet/]].
+
 * The Toy
 
 ** Goal

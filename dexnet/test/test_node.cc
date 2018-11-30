@@ -16,8 +16,8 @@ int main()
     auto jcfg = R"(
 {
    "name": "testcontrol",
+   "payload": { "name":"testcontrol", "type": "control_nodeside" },
    "ports": [ ],
-   "type": "control_nodeside",
    "plugins": [ { "name": "dexnet" } ]
 }
 )"_json;

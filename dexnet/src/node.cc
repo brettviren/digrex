@@ -90,6 +90,7 @@ void dn::Node::initialize(const std::string& json_text)
     {                 // hard-wire the actor control protocol and port
         json jctrl;
         jctrl["type"] = actor_ctrl_proto;
+        jctrl["name"] = actor_port_name;
         initialize_protocol(jctrl, actor_port_name);
     }
 
