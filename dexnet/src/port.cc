@@ -4,7 +4,7 @@ namespace dn = dexnet::node;
 
 
 dn::Port::Port(portid_t id, std::string name, zsock_t* sock, bool owned)
-    : m_id(id), m_name(name), m_sock(sock), m_socket_owned(owned)
+    : m_id(id), m_name(name), m_sock(sock), m_msg(nullptr), m_socket_owned(owned)
 {
 }
 dn::Port::~Port()
