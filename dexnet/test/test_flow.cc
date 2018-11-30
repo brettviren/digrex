@@ -19,7 +19,7 @@ namespace dnf = dexnet::node::flow;
 int main(int argc, char *argv[])
 {
     if (argc < 2) {
-        std::cerr << "usage: test_flow config.json\n";
+        std::cerr << "usage: test_flow <(jsonnet jsonnet/test_flow.jsonnet)\n";
         return -1;
     }
 
