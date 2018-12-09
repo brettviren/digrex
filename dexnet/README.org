@@ -173,3 +173,10 @@ A protocol is a set of related message types.  Each message type is identified b
 The schema of any subsequent frames depend on the contents of the first frame.  Any frames, including the first, which has structured data is formatted through protocol buffers.  Frames which hold large amounts of uniformly formatted data (eg, waveform data) or where overhead of protocol buffers is unacceptable may be formatted in another manner.
 
 
+* Agents
+
+An agent represents a number of actors.  It itself is an actor.  It implements a control protocol by which it learns of the identity and capabilities of its actors.  The ~ZyreAgent~ is one which uses this information to participate in Zyre discovery and presence.
+
+* Main
+
+An agent and actors are bundled into a main function which handles booting up the structure given configuration.
