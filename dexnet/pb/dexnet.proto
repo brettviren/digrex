@@ -1,0 +1,45 @@
+// -*- c++ -*- //
+
+// this contains protobuf message definitions for some dexnet frames.
+
+syntax = "proto3";
+package dexnet;
+
+// The identifier frame says how to interpret subsequent frames.
+message Identifier {
+    // Identify which protocol type the message is part of.
+    uint32 pcid = 1;
+
+    // Identify the message type to assume for subsequent frames.
+    uint32 msgid = 2;
+}
+
+message Get {
+    string resource = 1;
+}
+
+message Ret {
+    Get query = 1;              // copy Get back
+    int32 more = 2;               // -1 for error
+}
+
+
+message PortState {
+    // the id of the port in the node
+    uint32 portid = 1;
+    // the name of the port in the node
+    string portname = 2;
+    // a map of all bound endpoints to their host port
+    map<string, uint32> bound = 3;
+    // a list of connected endpoints
+    repeated string connected = 4;
+    // a list of protocol identifier names
+    repeated string protocols = 5;
+}
+
+// returned from a node after a Get(resource="/").
+message NodeState {
+    string name = 1;
+    string payload = 2;
+    repeated PortState ports = 3;
+}
