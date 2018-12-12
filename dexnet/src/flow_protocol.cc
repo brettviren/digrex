@@ -7,6 +7,8 @@
 #include "dexnet/protocol.h"
 #include "pb/testflow.pb.h"
 
+#include <iostream>
+
 namespace dn = dexnet::node;
 namespace dnf = dexnet::node::flow;
 namespace dh = dexnet::czmqpb;
@@ -50,12 +52,20 @@ public:
         m_dblock.set_durationns(last_time ? this_time-last_time : 0);
         m_dblock.set_block_index_t(1 + m_dblock.block_index_t());
         
-        // fixme, this name is provided by configuration, need a more static way to locate.
+        // fixme, this name is provided by configuration, need a more
+        // static way to locate.
         dn::Port* p = node->ports().find("out");
         zmsg_t* msg = p->create();
         dh::append_frame(msg, m_head);
         dh::append_frame(msg, m_dtime);
         dh::append_frame(msg, m_dblock);
+        int rc = p->send();
+        assert(rc >= 0);
+
+        zsys_debug("send: %d %jd %d",
+                   m_dblock.block_index_t(),
+                   m_dtime.epochns(),
+                   m_dblock.durationns());
         return 0;
     }
 };

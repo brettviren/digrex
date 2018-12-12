@@ -19,7 +19,9 @@ int dn::Port::bind(const std::string& endpoint)
 {
     int portnum = zsock_bind(m_sock, endpoint.c_str(), NULL);
     if (portnum < 0) {
+        int zerr = zmq_errno();
         zsys_error("port: failed to bind to %s", endpoint.c_str());
+        zsys_error(zmq_strerror(zerr));
         return portnum;
     }
     m_bound[endpoint] = portnum;

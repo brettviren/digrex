@@ -29,7 +29,8 @@ namespace dexnet {
 
             // internal: initialize a protocol.  If no port name then
             // it's assumed to be the "payload" protocol.
-            void initialize_protocol(nlohmann::json& jcfg, const std::string& portname="");
+            void initialize_protocol(nlohmann::json& jcfg,
+                                     const std::string& portname="");
             void shutdown();
 
             std::string m_name;

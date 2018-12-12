@@ -25,6 +25,12 @@ dn::Node::Node(zsock_t* pipe, void* args)
 }
 dn::Node::~Node()
 {
+    if (m_payload) {
+        zsys_debug("node: deleting payload protocol %s",
+                   m_payload->name().c_str());
+        delete m_payload;
+        m_payload = nullptr;
+    }
 }
 static int handle_timer(zloop_t* loop, int timer_id, void* vobj)
 {
@@ -37,10 +43,11 @@ void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
     std::string pctype = jcfg["type"];
     std::string pcname = jcfg["name"];
     if (portname == "") {
-        zsys_debug("adding payload \"%s\"", pctype.c_str());
+        zsys_debug("node: adding payload \"%s\" [%s]",
+                   pcname.c_str(), pctype.c_str());
     }
     else {
-        zsys_debug("adding protocol \"%s\" to port \"%s\"",
+        zsys_debug("node: adding protocol \"%s\" to port \"%s\"",
                    pctype.c_str(), portname.c_str());
     }
     auto pfact = dn::protocol_factory(pctype);
@@ -69,7 +76,7 @@ void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
 
 void dn::Node::initialize(const std::string& json_text)
 {
-    zsys_debug("node config string:\n%s", json_text.c_str());
+    zsys_debug("node: config string:\n%s", json_text.c_str());
 
     auto jcfg = json::parse(json_text);
     m_name = jcfg["name"];
@@ -178,9 +185,9 @@ int dn::Node::input(zsock_t* sock)
 static int handle_input (zloop_t *loop, zsock_t *sock, void *vobj)
 {
     dn::Node* node = static_cast<dn::Node*>(vobj);
-    zsys_debug("handling input on 0x%x", (void*)sock);
+    zsys_debug("node: handling input on 0x%x", (void*)sock);
     int rch = node->input(sock);
-    zsys_debug("handled input: %d", rch);
+    zsys_debug("node: handled input: %d", rch);
     if (rch <= 0) return rch;
     return -1;                  // not handling input is an error.
 }
@@ -192,7 +199,7 @@ void dn::Node::run()
         auto port = m_ports.get(pid);
         assert(port);
         int rc = zloop_reader(m_loop, port->sock(), handle_input, this);
-        zsys_debug("node: adding port %s to loop", port->name().c_str());
+        zsys_debug("node: adding port \"%s\" to loop", port->name().c_str());
         assert (rc == 0);
     }
     zloop_start(m_loop);
@@ -204,8 +211,8 @@ void dn::Node::run()
 void dn::actor(zsock_t* pipe, void* vargs)
 {
     dn::Node node(pipe, vargs);
-    zsys_debug("Node actor \"%s\" ready", node.name().c_str());
     zsock_signal(pipe, 0);      // ready
+    zsys_debug("Node actor \"%s\" ready", node.name().c_str());
     node.run();
     // node destructor destroys ports which destroys sockets
 }

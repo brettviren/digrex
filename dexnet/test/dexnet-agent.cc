@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
 
     // main loop
     while (true) {
+        assert(poller);
         void* which = zpoller_wait(poller, -1);
         if (!which) {
             zsys_info("interupted");

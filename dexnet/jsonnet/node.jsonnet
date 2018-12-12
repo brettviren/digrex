@@ -10,8 +10,9 @@
         name:name, type:type, timers:timers, args:args
     },
 
-    port :: function(name, ztype, protocols=[]) {
+    port :: function(name, ztype, protocols=[], bind=[], connect=[]) {
         name:name, type:ztype, protocols:protocols,
+        bind:bind, connect:connect
     },
 
     actor :: function(payload, ports=[]) {
