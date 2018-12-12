@@ -9,6 +9,21 @@
 
 namespace upif {
 
+    template <class T>
+    class singleton {
+    public:
+        static T& instance() {
+            static T m_instance;
+            return m_instance;
+        }
+
+    private:
+        singleton(){}
+        ~singleton(){}
+        singleton(singleton const&){}
+        singleton& operator=(singleton const&){}
+    };
+
     // Turn a library symbol name into symbol.  Symbol must be copyable.
     class plugin {
         void* m_lib;
@@ -82,6 +97,33 @@ namespace upif {
             return nullptr;
         }
     };
+
+
+    // Singleton access
+
+    inline
+    plugin* add(const std::string& plugin_name, const std::string& libname = "")
+    {
+        auto& c = singleton<cache>::instance();
+        return c.add(plugin_name, libname);
+    }
+
+    inline
+    void* rawsym(const std::string& symbol_name) {
+        auto& c = singleton<cache>::instance();
+        plugin* pi = c.find(symbol_name);
+        if (!pi) { return nullptr; }
+        return pi->rawsym(symbol_name);
+    }
+
+    template<typename T>
+    bool symbol(const std::string& symbol_name, T& ret) {
+        auto& c = singleton<cache>::instance();
+        plugin* pi = c.find(symbol_name);
+        if (!pi) return false;
+        return pi->symbol(symbol_name, ret);
+    }
+    
 
 }
 

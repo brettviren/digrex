@@ -43,7 +43,11 @@ def build(bld):
     tests = bld.path.ant_glob("test/*.cc")
 
     rpath = bld.env["LIBPATH_CZMQ"] + bld.env["LIBPATH_PROTOBUF"]
+    if 'HAVE_ZYRE' in bld.env:
+        rpath += bld.env["LIBPATH_ZYRE"]
     rpath += [bld.env["PREFIX"] + '/lib']
+    #print (rpath)
+    #print (bld.env)
 
     uses = 'ZYRE DYNAMO'.split()
 

@@ -3,7 +3,6 @@
 
 namespace dn = dexnet::node;
 
-
 dn::ProtocolFactory* dn::protocol_factory(upif::cache& plugins,
                                           const std::string& protocol_typename)
 {
@@ -22,6 +21,15 @@ dn::ProtocolFactory* dn::protocol_factory(upif::cache& plugins,
     }
     return nullptr;
 }
+
+dn::ProtocolFactory* dn::protocol_factory(const std::string& protocol_typename)
+{
+    auto& c = upif::singleton<upif::cache>::instance();
+    return dn::protocol_factory(c, protocol_typename);
+}
+
+
+
 dn::Protocol::~Protocol()
 {
 }

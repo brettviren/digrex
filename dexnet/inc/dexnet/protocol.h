@@ -70,6 +70,8 @@ namespace dexnet {
         // Return a protocol factory that can make a Protocol of given type name
         ProtocolFactory* protocol_factory(upif::cache& plugins,
                                           const std::string& protocol_typename);
+        // Use the singleton instance of upif.
+        ProtocolFactory* protocol_factory(const std::string& protocol_typename);
     }
 }
 //extern "C" {
