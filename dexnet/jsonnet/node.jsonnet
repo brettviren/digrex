@@ -18,6 +18,5 @@
         name: payload.name,
         payload: payload,
         ports: ports, 
-        plugins: [ { "name": "dexnet" } ], // fixme: should be conifg on main(), not actors
     },
 }

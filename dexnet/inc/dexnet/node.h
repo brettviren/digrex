@@ -2,7 +2,6 @@
 #define dexnet_node_h_seen
 
 #include "dexnet/portset.h"
-#include "upif.h"
 #include "json.hpp"
 #include <string>
 
@@ -37,7 +36,6 @@ namespace dexnet {
             PortSet m_ports;
             Protocol* m_payload;
             zloop_t* m_loop;
-            upif::cache m_plugins;
             std::unordered_map<int, Protocol*> m_timers;
         };
 

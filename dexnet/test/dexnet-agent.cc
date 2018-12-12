@@ -26,33 +26,59 @@ int main(int argc, char* argv[])
     zsys_init();
     zsys_set_logident("dexnet-agent");
 
+    // fixme: when considering initial configuraiton and later
+    // reconfiguration we have set up two formats and info streams for
+    // essentially identical purposes.  One is JSON the other is
+    // protobufs.  Need to resolve this or at least limit the
+    // duplication to this main() by having a JSON->PB converter.
     json jcfg;
     std::ifstream fstr(argv[1]);
-    fstr >> jcfg;
+    try {
+        fstr >> jcfg;
+    }
+    catch  (json::parse_error& e) {
+        std::cerr << "message: " << e.what() << '\n'
+                  << "exception id: " << e.id << '\n'
+                  << "byte position of error: " << e.byte << std::endl;
+    }
+
 
     // "{plugins: []}"
     auto plugin = upif::add("dexnet");
-    for (auto jp : jcfg["plugins"]) {
-        std::string piname = jp;
-        auto plugin = upif::add(piname);
+    try {
+        for (auto jp : jcfg["plugins"]) {
+            std::string piname = jp["name"].get<std::string>();
+            std::string libname = "";
+            if (jp["library"].is_string()) {
+                libname = jp["library"].get<std::string>();
+            }
+            zsys_info("add plugin %s [%s]", piname.c_str(), libname.c_str());
+            auto plugin = upif::add(piname);
+            if (!plugin) {
+                zsys_error("failed to add plugin \"%s\"", piname.c_str());
+                return -1;
+            }
+        }
+    }
+    catch  (json::type_error& e) {
+        std::cerr << "message: " << e.what() << '\n'
+                  << "exception id: " << e.id << std::endl;
     }
 
+    // make actors and add them to poller
+    zpoller_t* poller = zpoller_new(NULL);
     std::unordered_map<zactor_t*, std::string> actors; // node actors
     for (auto jn : jcfg["nodes"]) {
         std::string nam = jn["name"];
-        std::string typ = jn["type"];
         std::string jtext = jn.dump();
         zactor_t* actor = zactor_new(dn::actor, (void*)jtext.c_str());
         assert(actor);
-        actors[actor] = typ+":"+nam;
+        actors[actor] = nam;
+        zsys_info("polling %s", nam.c_str());
+        zpoller_add(poller, actor);
     }
 
-    zpoller_t* poller = zpoller_new(NULL);
-    for (auto& ait : actors) {
-        zsys_info("polling %s", ait.second.c_str());
-        zpoller_add(poller, ait.first);
-    }
-
+    // main loop
     while (true) {
         void* which = zpoller_wait(poller, -1);
         if (!which) {
@@ -68,6 +94,7 @@ int main(int argc, char* argv[])
         // fixme: read, maybe print and drop message?
     }
 
+    // clean up
     zpoller_destroy(&poller);
     for (auto ait : actors) {
         zsys_debug("destroy actor %s", ait.second.c_str());

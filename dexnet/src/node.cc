@@ -2,6 +2,8 @@
 #include "dexnet/protocol.h"
 #include "dexnet/protohelpers.h"
 
+#include "upif.h"
+
 #include <czmq.h>
 
 using json = nlohmann::json;
@@ -41,7 +43,7 @@ void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
         zsys_debug("adding protocol \"%s\" to port \"%s\"",
                    pctype.c_str(), portname.c_str());
     }
-    auto pfact = dn::protocol_factory(m_plugins, pctype); 
+    auto pfact = dn::protocol_factory(pctype);
     assert(pfact);
 
     auto proto = pfact->create(pcname);
@@ -67,22 +69,10 @@ void dn::Node::initialize_protocol(json& jcfg, const std::string& portname)
 
 void dn::Node::initialize(const std::string& json_text)
 {
-    zsys_debug("config string:\n%s", json_text.c_str());
+    zsys_debug("node config string:\n%s", json_text.c_str());
 
     auto jcfg = json::parse(json_text);
     m_name = jcfg["name"];
-
-    // fixme: initialize upfi, maybe make it a singleton to main() does init.
-    for (auto jpin : jcfg["plugins"]) {
-        std::string pname = jpin["name"];
-        std::string plib = "";
-        if (jpin["library"].is_string()) {
-            plib = jpin["library"];
-        }
-        zsys_debug("add plugin: %s %s", pname.c_str(), plib.c_str());
-        auto pi = m_plugins.add(pname, plib);
-        assert(pi);
-    }
 
     
     initialize_protocol(jcfg["payload"]);

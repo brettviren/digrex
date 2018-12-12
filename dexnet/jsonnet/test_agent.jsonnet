@@ -13,5 +13,11 @@ local actors = import "test_flow.jsonnet";
 
 
 // payload_protocol, ports
-node.actor(node.protocol("testagent", "zyre_agent", {nodes:actors}))
+{
+    plugins: [ { "name": "dexnet" } ],
+    nodes: [
+        node.actor(node.protocol("testagent", "zyre_agent", {nodes:actors}))
+    ],
+}
+
 
