@@ -11,12 +11,18 @@ def options(opt):
 def configure(cfg):
     cfg.load('compiler_c compiler_cxx')
     cfg.check_cfg(package='libzyre', uselib_store='ZYRE',
-                  args=['--cflags', '--libs'])
-
+                  args=['--cflags', '--libs'], mandatory=False)
+    cfg.check_cfg(package='libczmq', uselib_store='CZMQ',
+                  args=['--cflags', '--libs'], mandatory=True)
+    cfg.env.CXXFLAGS=["-g"]
 
 def build(bld):
-
-    for prog in "ironhouse ironhouse2 curve-keygen".split():
-        t = bld(features='c cxx cxxprogram', use='ZYRE',
+    progs=["gossipper"]
+    uses=["CZMQ"]
+    if bld.env.HAVE_ZYRE:
+        uses.append("ZYRE")
+        progs += "ironhouse ironhouse2 curve-keygen".split()
+    for prog in progs:
+        t = bld(features='c cxx cxxprogram', use=uses,
                 source=prog+'.cc', target=prog)
         t.rpath=bld.env['LIBPATH_ZYRE']
