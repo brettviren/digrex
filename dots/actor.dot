@@ -4,13 +4,13 @@ digraph actor {
         point2[shape=point];
         point3[shape=point];
 
-        filesrc[shape=circle,width=1.2];
+        filesrc[shape=circle,width=1.2,label="File\nSource"];
         
-        pusher[shape=circle,width=1.2];
+        pusher[shape=circle,width=1.2,label="Pusher"];
         push[shape=point];
         
-        puller0[shape=circle,width=1.2];
-        puller1[shape=circle,width=1.2];
+        puller0[shape=circle,width=1.2,label="Puller"];
+        puller1[shape=circle,width=1.2,label="Puller"];
 
         {rank=same; point0,filesrc}
         {rank=same; point1,pusher}
