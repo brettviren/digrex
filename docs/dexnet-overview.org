@@ -1,0 +1,193 @@
+#+title: Dynamically Aggregated Execution Graph
+#+LATEX_HEADER: \usepackage[margin=1.0in]{geometry}
+
+#+OPTIONS: ':t
+
+* Introduction 
+
+This note briefly describes ~dexnet~, a design and reference
+implementation for a layered toolkit for developing asynchronous,
+distributed and networked applications such as used for data
+acquisition.  A ~dexnet~ system is structured as a /ported data flow
+graph/ with graph vertices (nodes) constructed via dynamic aggregation
+methods.
+
+#+label: fig:node
+#+attr_latex: :width 8cm
+#+caption: Example of two ~dexnet~ ported nodes connected via ports by one edge.
+[[file:node-cartoon.pdf]]
+
+A pair of ~dexnet~ nodes are illustrated in figure [[fig:node]].  A node
+accepts and produces messages via its named ports and through actions
+delegated to protocol handler objects.  Each port defines a set of valid
+application-level protocols and associated message types.  Node ports
+are connected by message transport mechanisms.  Thus the graph is
+formed.  Legal connections are those where both endpoint ports support
+common protocols.
+
+Internally, a ~dexnet~ node implements some message transformation
+procedure.  The developer is free to implement the procedure up to any
+confines required by the declared port protocols.  To assist in
+developing ~dexnet~ nodes, software implementations and abstractions are
+provided for ports, protocols, and finally nodes.  If utilized, nodes
+may be constructed by dynamically aggregating these components, eg via
+/named factory pattern/ with dynamically loaded plugins and as driven by
+user configuration.  A resulting node is itself a component object so
+that nodes may be further aggregated either in the context of another
+node or in an executable process.  Thus reusable subgraph structure
+may be constructed once and then reused as a unit in a larger data
+flow graph.
+
+The next section will give a description of some details of the
+reference implementation.  Finally, a list of identified areas of
+improvement is given.
+
+* Reference Implementation
+
+The initial implementation of this design is based on ZeroMQ software
+ecosystem.  In particular, ~libzmq~ for low level socket transport and
+CZMQ for high-level C/C++ supporting functions.  The named factory
+pattern and dynamically loaded plugin features are extracted from the
+Wire-Cell Toolkit[fn:wct].  The reference design is part of the ~digrex~
+package[fn:dexnet] which houses a number of loosely related prototypes and tests.  In principle, the ~dexnet~ design may be
+reimplemented on other base software.  The remaining subsections
+describe each type of major component.
+
+
+[fn:wct] https://lar.bnl.gov/wire-cell/
+
+[fn:dexnet] https://github.com/brettviren/digrex/tree/master/dexnet
+
+** Node
+
+The provided ~dexnet::node::Node~ class can be used to construct a
+~dexnet~ node by aggregating ports and protocols.  It is general purpose
+and not for inheritance.  Although it may be constructed directly, it
+is intended to be created by the provided CZMQ actor (~zactor~)
+function.  The code aggregation performed by a ~Node~ instance is driven
+by a configuration.  In the reference ~dexnet~ this is in the form of a
+JSON string.
+
+On construction a ~Node~ will register the ~zactor~ pipe socket as a
+special port and initialize itself based on the configuration.  This
+actor pipe is used for thread-safe communications between the node and
+software component that creates the node.
+
+Initialization of a node results in a number of additional ports being
+defined and registered on the node.  In addition the configuration may
+describe a number of protocol objects which will be dynamically
+constructed and associated with their port.
+
+The node then constructs a CZMQ reactor (~zloop~) and registers handlers
+for message input events and timers.  The loop is then entered and
+from then on the ~Node~ is free running in the actor thread.  It's
+behavior depends on the collective behavior of the node's ports and
+their protocol objects.
+
+** Ports and PortSets
+
+A port is implemented as the ~dexnet::node::Port~ class which is
+currently not intended for inheritance.  It is an aggregation of a
+CZMQ socket (~zsock~) and a /current message/.  It is constructed and
+exists in the context of an owning ~dexnet::node::PortSet~ which is used
+by ~Node~ to manage its ports.  The port exposes methods that allow
+~bind()~ or ~connect()~ to be called on the underlying socket.  It is also
+provided zero or more protocol objects which it retains in order to
+dispatch the event of an inbound message on the underlying socket.
+This linear dispatch progresses through all protocols registered with
+the port unless one returns error.
+
+** Protocols
+
+A ~dexnet~ protocol object inherits from ~dexnet::node::Protocol~.  The
+implementation provides a configure method that accepts a pointer to
+the parent ~Node~, a name and configuration in the form of a JSON
+string.  It's one required method is ~handle(node,port)~ wherein it may
+receive notice of activity on a port.  An optional
+~timer(node,timer_id)~ method may be provided to receive notice of an
+expired timer.
+
+Thus, when a message is received on a port of the node the associated
+protocol handler is called.  If it returns successfully a special
+/payload/ protocol handler is called on the active port.  This payload
+call is common to all ports of the node.  Thus a protocol handler may
+provide some per-port pre processing of the message and a payload
+handler may perform processing in the context of all messages.
+
+** Thread safety
+
+A ~Node~ runs fully in one thread and so all referencing between nodes,
+ports, protocols and messages are inherently thread-safe.  A protocol
+is free to spawn its own threads and must then take care to preserve
+their safety.  Nodes communicate to the caller via the /actor pipe/
+which is a ZeroMQ ~inproc~ transport and (as with all ZeroMQ transports)
+is thread safe.
+
+* Areas of improvement
+
+As of writing, the ~dexnet~ reference implementation is a work in
+progress.  In no particular order, some areas of improvement are:
+
+- Evaluation of configuration mechanism.  Currently, configuration is
+  provided as string data in JSON format and a particular schema.  The
+  implementation uses the high-performance ~nlohmann::json~ header-only
+  C++ library (included) to perform parsing and provide working
+  objects.  The configuration is applied at ~Node~ construction and thus
+  some novel configuration path is required if nodes are to be
+  dynamically configured.  One option is to have the node aggregation
+  code (typically a ~main()~ or other high-level function or object)
+  simply destroy a node and reconstruct a new one in order to cause a
+  configuration change.
+
+- Evaluation of message serialization mechanism.  The underlying
+  message container is that of CZMQ's ~zmsg_t~ including possible use of
+  ~zframe_t~ substructure.  The two provide a general purpose, if simple
+  container structure.  Alone they may be used to hold highly
+  structured message data, if constructed from somewhat limited types.
+  More complex serialization can be provided by other means.  For
+  example, protobuf is used in the reference implementation.
+  Ultimately, it is the protocol classes that determine the message
+  serialization format.  An optimum choice for any given protocol
+  requires analysis of the overall graph architecture.  Not all types
+  of edges of the graph need utilize the same message serialization
+  however proliferation should be avoided.  Message serialization
+  functions should be provided through independent software packages
+  and libraries to facilitate use in developing ~dexnet~ nodes with the
+  components described above or with a novel software base.
+
+- Subgraph construction.  The reference implementation currently lacks
+  support for constructing hierarchy of nodes.  That is, construction
+  of nodes with payload protocols that themselves create nodes.  This
+  can be done with manual hard-wired code.  Automating this pattern of
+  aggregation would facilitate code reuse. 
+
+- Discovery and presence.  Most ~dexnet~ installations will have nodes
+  that require knowledge of peers appearance and disappearance.  It is
+  also advantageous to form edges between nodes with using an
+  abstracted node and port identifiers which can resolve to physical
+  addressing.  The ZeroMQ Zyre mechanism is a natural solution to both
+  of these difficult problems.  Currently a ~bind()~ or a ~connect()~ of
+  all node ports is done at node initialization.  As ZeroMQ does not
+  require either endpoint to exist, the order of this is not
+  constrained.  However, is a more dynamic connection based on
+  discovery and name to address resolution is to be included then a
+  deferred ~connect()~ method in ~Node~ is needed.  Likewise, if some
+  response to the loss of peer presence is to be enacted, some
+  "protocol" for that needs development.
+
+- Protocol handlers.  Protocol handlers are ultimately implementations
+  of a finite state machine (FSM) that asserts messages are processed
+  according to the supported protocol.  Common FSM support should be
+  supplied.  Boost.SML has been investigated for use but may be overly
+  difficult to use given it is based on cutting edge C++ standards.  A
+  second issue is that a protocol handler is currently beholden to
+  interact only with the node and port, both of which are generic
+  objects.  This leaves only the current message as a means to
+  exchange data between protocols.  Eg, a port and payload protocol
+  may not directly communicate unless they arrange to do so in some
+  out-of-band manner.  While this encourages protocols to be developed
+  in a reusable, independent manner, it may limit expressiveness.
+  Because the protocols operate always in the same thread a node
+  developer may simply share memory between protocol handlers but at
+  the potential cost of rendering these protocol handlers unusable in
+  constructing some variant node.

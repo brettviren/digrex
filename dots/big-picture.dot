@@ -1,21 +1,25 @@
 digraph bp {
         waveformsource->hitfinder->tcfinder->mlt;
-        etl->mlt[dir=both];
+        elt->mlt[dir=both];
+        waveformsource->bis;
         bis->eb[dir=both]
         dso->eb;
         mlt->dso;
 
-        felog->log;
-        dslog->log;
-        eblog->log;
+        bis->log;
 
-        bis->felog;
+        hitfinder->log;
+        tcfinder->log;
+        mlt->log;
 
-        hitfinder->dslog;
-        tcfinder->dslog;
-        mlt->dslog;
-
-        eb->eblog;
-        dso->eblog;
+        elt->log;
+        eb->log;
+        dso->log;
         
+        epoch->hitfinder
+        epoch->tcfinder
+        epoch->elt
+        epoch->mlt
+        epoch->log
+
 }
